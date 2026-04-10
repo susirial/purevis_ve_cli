@@ -1,4 +1,4 @@
-# PureVis Studio Agent - AI短剧创作总控智能体
+# AI短剧创作智能体
 
 ## 1. 项目简介 (Introduction)
 
