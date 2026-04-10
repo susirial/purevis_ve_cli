@@ -25,7 +25,7 @@ source .venv/bin/activate
 # .venv\Scripts\activate
 
 # 3. 安装项目依赖
-pip install veadk google-genai python-dotenv rich tiktoken pillow requests
+pip install veadk-python google-genai python-dotenv rich tiktoken pillow requests
 ```
 
 *(注：如果项目后续提供 `requirements.txt`，也可直接 `pip install -r requirements.txt`)*
