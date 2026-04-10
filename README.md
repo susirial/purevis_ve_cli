@@ -30,7 +30,19 @@ pip install veadk-python google-genai python-dotenv rich tiktoken pillow request
 
 *(注：如果项目后续提供 `requirements.txt`，也可直接 `pip install -r requirements.txt`)*
 
-### 2.3 配置环境变量 (.env)
+### 2.3 必须开通的模型服务 (Required Model Services)
+在使用本系统之前，您必须在**火山引擎方舟平台 (Volcengine Ark)** 注册并开通以下大模型服务，并获取 API Key：
+
+1. **文本生成模型**（必须）：用于剧本、分镜、调度等所有文本任务。
+   - 推荐开通：`doubao-seed-2-0-pro-260215`（或其他豆包主力文本大模型）。
+2. **生图模型**（必须，若使用火山底座）：用于文生图、图生图生成关键帧资产。
+   - 推荐开通：`doubao-seedream-4-5-pro` (SeeDream 4.5 生图模型)。
+3. **生视频模型**（必须，若使用火山底座）：用于将关键帧转换为动态短剧片段。
+   - 推荐开通：`doubao-seedance-1-5-pro` (Seedance 1.5 生视频模型)。
+
+*注意：如果您的系统没有配置 `PUREVIS_API_KEY`，那么多模态生成任务（图片/视频）将默认回退使用火山引擎方舟平台的模型能力。*
+
+### 2.4 配置环境变量 (.env)
 项目依赖一些外部 API 密钥才能正常运行。根目录提供了一个配置文件模板 `.example_env`。
 
 ```bash
