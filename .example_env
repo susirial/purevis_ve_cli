@@ -1,0 +1,28 @@
+# ------------------------------------------------------------------------------
+# API Keys 配置
+# ------------------------------------------------------------------------------
+
+# 火山方舟大模型配置 (用于对话、写剧本、审图等能力）
+MODEL_AGENT_NAME=doubao-seed-2-0-pro-260215
+MODEL_AGENT_API_KEY=
+
+# 火山引擎内置工具(如 web_search) 需要的 AK 和 SK（预留，咱不需要）
+#VOLCENGINE_ACCESS_KEY=your_ak_here
+#VOLCENGINE_SECRET_KEY=your_sk_here
+
+# PureVis API Key
+# 【可选】如果配置了此 Key，系统默认优先使用 www.purevis.cn 进行生图和生视频，支持完整的高级工作流。
+# 如果不配置此 Key，系统会自动降级，使用上面的 MODEL_AGENT_API_KEY 去调用本地火山引擎大模型 (SeeDream/SeeDance)。
+PUREVIS_API_KEY=
+
+# ------------------------------------------------------------------------------
+# 系统运行配置
+# ------------------------------------------------------------------------------
+
+# 日志等级
+LOGGING_LEVEL=ERROR
+
+# 【可选】显式指定媒体提供方
+# 可选值: auto | purevis | volcengine_ark | vidu | kling
+# 默认 volcengine_ark
+MEDIA_PROVIDER=volcengine_ark
