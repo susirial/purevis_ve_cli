@@ -10,35 +10,47 @@
 
 ### 2.1 环境依赖
 - Python 3.10+
-- 推荐使用虚拟环境 (venv 或 conda)
 
-### 2.2 安装依赖包
-目前项目主要依赖 `veadk` 及相关生态组件，在终端执行以下命令安装依赖：
+### 2.2 创建虚拟环境并安装依赖
+强烈建议使用虚拟环境（如 `venv` 或 `conda`）来隔离项目依赖。以下提供使用 `venv` 的完整步骤：
 
 ```bash
+# 1. 在项目根目录创建名为 .venv 的虚拟环境
+python3 -m venv .venv
+
+# 2. 激活虚拟环境
+# (macOS/Linux)
+source .venv/bin/activate
+# (Windows)
+# .venv\Scripts\activate
+
+# 3. 安装项目依赖
 pip install veadk google-genai python-dotenv rich tiktoken pillow requests
 ```
 
 *(注：如果项目后续提供 `requirements.txt`，也可直接 `pip install -r requirements.txt`)*
 
-### 2.3 配置环境变量
-项目根目录提供了一个配置文件模板 `.example_env`。在首次运行前，请将其复制并重命名为 `.env`：
+### 2.3 配置环境变量 (.env)
+项目依赖一些外部 API 密钥才能正常运行。根目录提供了一个配置文件模板 `.example_env`。
 
 ```bash
+# 1. 复制模板并重命名为 .env
 cp .example_env .env
 ```
 
-然后编辑 `.env` 文件，填入您的 API Keys：
-- `MODEL_AGENT_NAME` / `MODEL_AGENT_API_KEY`: 火山引擎/豆包大模型配置。
+# 2. 编辑 .env 文件，填入您的实际 API Keys
+使用文本编辑器（如 `vim .env` 或直接在 IDE 中打开）修改以下配置：
+- `MODEL_AGENT_NAME` / `MODEL_AGENT_API_KEY`: 必填。火山引擎/豆包大模型配置（用于文本生成、调度及降级方案）。
+- `VOLCENGINE_ACCESS_KEY` / `VOLCENGINE_SECRET_KEY`: 必填。火山引擎内置工具使用的 AK/SK。
 - `PUREVIS_API_KEY`: [可选] PureVis 高级工作流 API Key，如果不配置，系统默认回退使用火山引擎（Seed 系列）进行生图/视频。
-- `MEDIA_PROVIDER`: [可选] 指定底层媒体生成提供商 (`auto` | `purevis` | `volcengine_ark` )。
+- `MEDIA_PROVIDER`: [可选] 指定底层媒体生成提供商 (`auto` | `purevis` | `volcengine_ark` | `vidu` | `kling`)。
 
-比如：全部使用火山引擎的配置如下：
+全部使用火山引擎的配置如下：
 # 火山方舟大模型配置
 MODEL_AGENT_NAME=doubao-seed-2-0-pro-260215 （建议不改，默认豆包2.0）
 MODEL_AGENT_API_KEY= 你的火山引擎方舟的API KEY （不是火山引擎AK SK）
 
-# 火山引擎内置工具(如 web_search) 需要的 AK 和 SK （目前还没用到，预留）
+# 火山引擎内置工具(如 web_search) 需要的 AK 和 SK （目前还没用到，不需要）
 #VOLCENGINE_ACCESS_KEY=your_ak_here
 #VOLCENGINE_SECRET_KEY=your_sk_here
 
