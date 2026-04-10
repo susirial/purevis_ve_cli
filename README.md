@@ -41,9 +41,9 @@ cp .example_env .env
 # 2. 编辑 .env 文件，填入您的实际 API Keys
 使用文本编辑器（如 `vim .env` 或直接在 IDE 中打开）修改以下配置：
 - `MODEL_AGENT_NAME` / `MODEL_AGENT_API_KEY`: 必填。火山引擎/豆包大模型配置（用于文本生成、调度及降级方案）。
-- `VOLCENGINE_ACCESS_KEY` / `VOLCENGINE_SECRET_KEY`: 必填。火山引擎内置工具使用的 AK/SK。
+- `VOLCENGINE_ACCESS_KEY` / `VOLCENGINE_SECRET_KEY`: 选填。火山引擎内置工具使用的 AK/SK（暂未用到）。
 - `PUREVIS_API_KEY`: [可选] PureVis 高级工作流 API Key，如果不配置，系统默认回退使用火山引擎（Seed 系列）进行生图/视频。
-- `MEDIA_PROVIDER`: [可选] 指定底层媒体生成提供商 (`auto` | `purevis` | `volcengine_ark` | `vidu` | `kling`)。
+- `MEDIA_PROVIDER`: [可选] 指定底层媒体生成提供商 (`auto` | `purevis` | `volcengine_ark`， 使用火山引擎选择 volcengine_ark)。
 
 全部使用火山引擎的配置如下：
 # 火山方舟大模型配置
