@@ -36,9 +36,9 @@ pip install veadk-python google-genai python-dotenv rich tiktoken pillow request
 1. **文本生成模型**（必须）：用于剧本、分镜、调度等所有文本任务。
    - 推荐开通：`doubao-seed-2-0-pro-260215`（或其他豆包主力文本大模型）。
 2. **生图模型**（必须，若使用火山底座）：用于文生图、图生图生成关键帧资产。
-   - 推荐开通：`doubao-seedream-4-5-pro` (SeeDream 4.5 生图模型)。
+   - 推荐开通：`doubao-seedream-4-5-251128` (SeeDream 4.5 生图模型)。
 3. **生视频模型**（必须，若使用火山底座）：用于将关键帧转换为动态短剧片段。
-   - 推荐开通：`doubao-seedance-1-5-pro` (Seedance 1.5 生视频模型)。
+   - 推荐开通：`doubao-seedance-1-5-pro-251215` (Seedance 1.5 生视频模型)。
 
 *注意：如果您的系统没有配置 `PUREVIS_API_KEY`，那么多模态生成任务（图片/视频）将默认回退使用火山引擎方舟平台的模型能力。*
 
