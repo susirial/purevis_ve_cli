@@ -11,9 +11,12 @@ from google.genai.types import Content, Part
 from agents.orchestrator import orchestrator_agent
 
 # --- 引入 Rich 组件 ---
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.text import Text
+from rich.table import Table
+from rich.rule import Rule
+from rich import box
 
 from tools.chat_history import handle_cli_command, count_session_tokens, custom_compact_session_memory
 
@@ -24,17 +27,53 @@ async def main():
     # 2. 使用编排好的总控智能体
     runner = Runner(agent=orchestrator_agent, app_name="purevis_app", user_id="user_01")
     
-    welcome_msg = (
-        "[bold white]Welcome to PureVis Studio Agent[/bold white] 🎬\n\n"
-        "我是一个强大的 AI 短剧创作总控智能体，通过多智能体协作（视觉导演、多模态编导等）\n"
-        "为你提供从[cyan]剧本拆解[/cyan]、[cyan]角色/场景设计[/cyan]到[cyan]多模态生成（图片/视频）[/cyan]的全链路创作服务。\n\n"
-        "✨ [dim]输入 [bold red]'/help'[/bold red] 查看可用指令，或直接说出你的创作想法。[/dim]\n"
-        "✨ [dim]输入 [bold red]'exit'[/bold red] 或 [bold red]'quit'[/bold red] 退出对话。[/dim]"
+    # --- Welcome Screen Layout ---
+    table = Table(show_header=False, show_edge=False, box=box.MINIMAL, padding=(0, 2))
+    table.add_column("Left", justify="center", ratio=1, style="cyan")
+    table.add_column("Right", justify="left", ratio=1)
+
+    model_info = os.environ.get("MODEL_AGENT_NAME", "Unknown")
+    cwd = os.getcwd()
+    
+    left_content = f"""
+[bold white]Welcome to PureVis Studio Agent[/bold white] 🎬
+[bold cyan]
+ /\\    _ _    /\\    
+  /  \\_________/  \\   
+  │   ┌───┐ ┌───┐   │  
+  │   │ ◉ │ │ ◉ │   │  
+  │   └───┘ └───┘   │  
+  └─────────────────┘  [/bold cyan]
+
+[bold dim]Model:[/bold dim] {model_info}
+[bold dim]Workspace:[/bold dim] {cwd}
+"""
+
+    right_top = """[bold yellow]💡 Tips for getting started[/bold yellow]
+✨ 输入 [bold red]'/help'[/bold red] 查看可用本地指令
+✨ 输入 [bold red]'exit'[/bold red] 或 [bold red]'quit'[/bold red] 退出
+✨ 直接输入你的创作想法即可开始"""
+
+    right_bottom = """[bold green]🚀 Core capabilities[/bold green]
+• [cyan]剧本拆解[/cyan]：自动拆解短剧剧情与分镜
+• [cyan]角色/场景设计[/cyan]：设定与风格化生成
+• [cyan]多模态生成[/cyan]：文本生图、图生视频
+• [cyan]视觉审核[/cyan]：资产审美把关与一致性检查"""
+
+    right_content = Group(
+        right_top,
+        Rule(style="dim"),
+        right_bottom
     )
-    console.print(Panel.fit(
-        welcome_msg, 
+
+    table.add_row(left_content, right_content)
+
+    console.print(Panel(
+        table, 
         title="[bold blue]PureVis Studio[/bold blue]", 
-        border_style="blue",
+        title_align="center",
+        border_style="blue", 
+        box=box.ROUNDED,
         padding=(1, 2)
     ))
     
