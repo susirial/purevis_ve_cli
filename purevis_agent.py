@@ -51,6 +51,7 @@ async def main():
 
     right_top = """[bold yellow]💡 Tips for getting started[/bold yellow]
 ✨ 输入 [bold red]'/help'[/bold red] 查看可用本地指令
+✨ 输入 [bold red]'/style help'[/bold red] 浏览结构化风格配置
 ✨ 输入 [bold red]'exit'[/bold red] 或 [bold red]'quit'[/bold red] 退出
 ✨ 直接输入你的创作想法即可开始"""
 

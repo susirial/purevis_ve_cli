@@ -2,6 +2,7 @@ from core.state_manager import StateManager
 from typing import Dict, Any
 from tools.gallery_generator import generate_project_dashboard
 
+
 def open_project_dashboard_state(project_name: str) -> Dict[str, Any]:
     """
     打开并渲染当前项目的全量图片资产画廊（Project Asset Dashboard）。
@@ -52,7 +53,7 @@ def create_project_state(project_name: str) -> Dict[str, Any]:
 
 def get_project_state(project_name: str = None) -> Dict[str, Any]:
     """
-    获取当前短剧项目的整体状态和资产列表（包括已创建的剧集、已生成的角色/场景/物品图片等）。
+    获取当前短剧项目的整体状态和资产列表（包括配置、已创建的剧集、已生成的角色/场景/物品图片等）。
     当你需要知道项目有哪些角色图片、场景图片，或者项目进行到什么阶段时，调用此工具。
     如果 project_name 为空，将会尝试列出当前所有项目提示用户。
     """
@@ -99,6 +100,17 @@ def add_subject_image_state(project_name: str, subject_name: str, subject_type: 
         )
     except Exception as e:
         return {"error": f"添加主体图片失败: {e}"}
+
+def update_project_settings_state(project_name: str, settings: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    更新项目的全局配置项（如视觉风格 art_style、目标媒介 aspect_ratio 等）。
+    可以增量更新。传入一个字典，字典中包含要更新的配置项和值。
+    """
+    sm = StateManager()
+    try:
+        return sm.update_project_settings(project_name, settings)
+    except Exception as e:
+        return {"error": f"更新项目配置失败: {e}"}
 
 def add_episode_state(project_name: str, episode_id: str) -> Dict[str, Any]:
     """

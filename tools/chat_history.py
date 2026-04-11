@@ -11,6 +11,8 @@ except Exception:
 try:
     from rich.console import Console
     from rich.markdown import Markdown
+    from rich.table import Table
+    from rich import box
 except Exception:
     from contextlib import nullcontext
 
@@ -24,7 +26,25 @@ except Exception:
 
     class Markdown(str):
         pass
+    class Table:
+        def __init__(self, *args, **kwargs):
+            self.rows = []
+
+        def add_column(self, *args, **kwargs):
+            return None
+
+        def add_row(self, *args, **kwargs):
+            self.rows.append(args)
+
+        def __str__(self):
+            return "\n".join(" | ".join(str(cell) for cell in row) for row in self.rows)
+
+    class _Box:
+        SIMPLE = None
+
+    box = _Box()
 from tools.display_tools import format_clickable_link
+from core.style_config_manager import StyleConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -494,6 +514,7 @@ async def handle_cli_command(command: str, runner, console: Console) -> bool:
     cmd_raw = command.strip()
     cmd = cmd_raw.lower()
     cmd_parts = cmd.split()
+    style_manager = StyleConfigManager()
     
     if cmd == "/help":
         help_text = (
@@ -505,6 +526,7 @@ async def handle_cli_command(command: str, runner, console: Console) -> bool:
             "  [bold green]/export[/bold green]  - 导出当前会话历史到 Markdown 文件\n"
             "  [bold green]/import[/bold green]  - 从文件导入历史记录，用法: /import <filepath>\n"
             "  [bold green]/delete[/bold green]  - 清理 output 目录下的所有生成内容\n"
+            "  [bold green]/style[/bold green]   - 浏览或应用风格配置，输入 /style help 查看子命令\n"
             "  [bold green]exit / quit[/bold green] - 退出程序"
         )
         console.print(help_text)
@@ -643,8 +665,127 @@ async def handle_cli_command(command: str, runner, console: Console) -> bool:
             console.print(f"[bold red]❌ 导入失败：{msg}[/bold red]")
         return True
 
+    elif cmd_parts[0] == "/style":
+        if len(cmd_parts) == 1 or cmd_parts[1] == "help":
+            console.print(
+                "[bold cyan]风格配置命令：[/bold cyan]\n"
+                "  [bold green]/style families[/bold green] - 列出一级风格家族\n"
+                "  [bold green]/style subtypes <family>[/bold green] - 列出某个家族的二级子类\n"
+                "  [bold green]/style show <family> <subtype>[/bold green] - 查看预设详情\n"
+                "  [bold green]/style current <project>[/bold green] - 查看项目当前风格配置\n"
+                "  [bold green]/style apply <project> <target> <family> <subtype>[/bold green] - 应用风格到 video/image/keyframe\n"
+                "  [bold green]/style delete <project> [target][/bold green] - 删除某个目标或全部风格配置\n"
+                "  [bold green]/style versions <project>[/bold green] - 查看版本历史\n"
+            )
+            return True
+
+        subcommand = cmd_parts[1]
+        try:
+            if subcommand == "families":
+                families = style_manager.list_style_families()
+                table = Table(title="风格家族总览", box=box.SIMPLE)
+                table.add_column("Family Code", style="cyan")
+                table.add_column("中文名称", style="green")
+                table.add_column("子类数", justify="right")
+                for family in families:
+                    table.add_row(family["code"], family["label"], str(len(family.get("subtypes", []))))
+                console.print(table)
+                return True
+
+            if subcommand == "subtypes" and len(cmd_parts) >= 3:
+                family = cmd_parts[2]
+                subtypes = style_manager.list_style_subtypes(family)
+                table = Table(title=f"{family} 子类", box=box.SIMPLE)
+                table.add_column("Subtype", style="cyan")
+                table.add_column("适配媒介", style="green")
+                table.add_column("推荐色板")
+                for subtype in subtypes:
+                    table.add_row(
+                        subtype["code"],
+                        ", ".join(subtype.get("applicable_media", [])),
+                        ", ".join(subtype.get("recommended_palette", [])),
+                    )
+                console.print(table)
+                return True
+
+            if subcommand == "show" and len(cmd_parts) >= 4:
+                preset = style_manager.get_style_preset(cmd_parts[2], cmd_parts[3])
+                console.print(Markdown(
+                    "\n".join(
+                        [
+                            f"### {preset['family_code']} / {preset['subtype_code']}",
+                            f"- 中文家族：{preset['family_label']}",
+                            f"- 适配媒介：{', '.join(preset.get('applicable_media', []))}",
+                            f"- 推荐色板：{', '.join(preset.get('recommended_palette', []))}",
+                            f"- 推荐镜头：{', '.join(preset.get('recommended_camera', []))}",
+                            f"- 推荐材质：{', '.join(preset.get('surface_treatment', []))}",
+                            f"- 目标受众：{', '.join(preset.get('audience_tags', []))}",
+                        ]
+                    )
+                ))
+                return True
+
+            if subcommand == "current" and len(cmd_parts) >= 3:
+                current = style_manager.get_project_style_config(cmd_parts[2])
+                console.print(Markdown(f"```json\n{json.dumps(current, ensure_ascii=False, indent=2)}\n```"))
+                return True
+
+            if subcommand == "apply" and len(cmd_parts) >= 6:
+                project_name = cmd_parts[2]
+                target = cmd_parts[3]
+                family_code = cmd_parts[4]
+                subtype_code = cmd_parts[5]
+                result = style_manager.update_project_style_config(
+                    project_name=project_name,
+                    target_styles={target: {"family_code": family_code, "subtype_code": subtype_code}},
+                    actor="cli",
+                    change_reason="cli style apply",
+                )
+                warnings = result.get("warnings") or []
+                console.print(f"[bold green]✅ 已更新项目 {project_name} 的 {target} 风格为 {family_code}/{subtype_code}[/bold green]")
+                for warning in warnings:
+                    console.print(f"[bold yellow]⚠️ {warning}[/bold yellow]")
+                return True
+
+            if subcommand == "delete" and len(cmd_parts) >= 3:
+                project_name = cmd_parts[2]
+                target = cmd_parts[3] if len(cmd_parts) >= 4 else None
+                style_manager.delete_project_style_config(
+                    project_name=project_name,
+                    target=target,
+                    actor="cli",
+                    change_reason="cli style delete",
+                )
+                scope = target or "全部"
+                console.print(f"[bold green]✅ 已删除项目 {project_name} 的 {scope} 风格配置[/bold green]")
+                return True
+
+            if subcommand == "versions" and len(cmd_parts) >= 3:
+                versions = style_manager.list_project_style_versions(cmd_parts[2])
+                snapshots = versions.get("snapshots", [])
+                table = Table(title=f"{cmd_parts[2]} 风格版本历史", box=box.SIMPLE)
+                table.add_column("Version", justify="right")
+                table.add_column("Timestamp")
+                table.add_column("Actor")
+                table.add_column("Reason")
+                for snapshot in snapshots[-10:]:
+                    table.add_row(
+                        str(snapshot.get("version")),
+                        str(snapshot.get("timestamp")),
+                        str(snapshot.get("actor")),
+                        str(snapshot.get("change_reason")),
+                    )
+                console.print(table)
+                return True
+        except Exception as e:
+            console.print(f"[bold red]❌ 风格命令执行失败：{e}[/bold red]")
+            return True
+
+        console.print("[bold yellow]⚠️ 风格命令参数无效，输入 /style help 查看用法。[/bold yellow]")
+        return True
+
     elif cmd.startswith("/"):
-        console.print(f"[bold yellow]⚠️ 未知命令 '{cmd_raw}'。当前支持的命令：/help, /history, /clear, /compact, /export, /delete, /import[/bold yellow]")
+        console.print(f"[bold yellow]⚠️ 未知命令 '{cmd_raw}'。当前支持的命令：/help, /history, /clear, /compact, /export, /delete, /import, /style[/bold yellow]")
         return True
         
     return False

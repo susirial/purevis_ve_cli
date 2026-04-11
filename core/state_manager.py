@@ -1,4 +1,3 @@
-import os
 import json
 import shutil
 from pathlib import Path
@@ -61,6 +60,7 @@ class StateManager:
 
         state = {
             "name": project_name,
+            "settings": {},
             "subjects": [],
             "episodes": episodes
         }
@@ -81,6 +81,7 @@ class StateManager:
         # 初始化状态并序列化 (SubTask 1.5)
         state = {
             "name": name,
+            "settings": {},
             "subjects": [],
             "episodes": {}
         }
@@ -109,6 +110,25 @@ class StateManager:
         state_file = self._get_state_file(name)
         with open(state_file, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=4, ensure_ascii=False)
+
+    def update_project_settings(self, project_name: str, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        更新项目全局配置 (支持增量更新)
+        """
+        state = self.load_state(project_name)
+        if "settings" not in state:
+            state["settings"] = {}
+
+        state["settings"] = _deep_merge_dicts(state["settings"], settings)
+        self.save_state(project_name, state)
+        return state["settings"]
+
+    def get_project_settings(self, project_name: str) -> Dict[str, Any]:
+        """
+        获取项目全局配置
+        """
+        state = self.load_state(project_name)
+        return state.get("settings", {})
 
     def add_episode(self, project_name: str, episode_id: str) -> Dict[str, Any]:
         """
@@ -194,3 +214,14 @@ class StateManager:
     def get_episode_dir(self, project_name: str, episode_id: str) -> Path:
         """获取某集的主目录"""
         return self._get_project_dir(project_name) / "episodes" / episode_id
+
+
+def _deep_merge_dicts(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(base)
+    for key, value in incoming.items():
+        existing = result.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            result[key] = _deep_merge_dicts(existing, value)
+            continue
+        result[key] = value
+    return result
