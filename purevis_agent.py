@@ -38,7 +38,7 @@ async def main():
     left_content = f"""
 [bold white]Welcome to PureVis Studio Agent[/bold white] 🎬
 [bold cyan]
- /\\    _ _    /\\    
+  /\\    _ _    /\\    
   /  \\_________/  \\   
   │   ┌───┐ ┌───┐   │  
   │   │ ◉ │ │ ◉ │   │  
