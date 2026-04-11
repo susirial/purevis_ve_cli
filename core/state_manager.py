@@ -105,6 +105,62 @@ class StateManager:
         with open(state_file, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def discover_subject_assets(self, project_name: str) -> Dict[str, Any]:
+        project_dir = self._get_project_dir(project_name)
+        if not project_dir.exists():
+            raise FileNotFoundError(f"未找到项目 '{project_name}' 的目录。")
+
+        subjects_dir = project_dir / "subjects"
+        registered_subject_names = self._get_registered_subject_names(project_name)
+        if not subjects_dir.exists():
+            return {
+                "project_name": project_name,
+                "subject_root": str(subjects_dir),
+                "registered_subject_names": registered_subject_names,
+                "discovered_subjects": [],
+                "discovered_count": 0,
+            }
+
+        discovered: Dict[str, Dict[str, Any]] = {}
+        for item in sorted(subjects_dir.iterdir(), key=lambda path: (not path.is_dir(), path.name.lower())):
+            if item.is_dir():
+                subject_name = item.name.strip()
+                record = discovered.setdefault(subject_name, _build_discovered_subject_record(subject_name))
+                _append_unique(record["source_paths"], str(item))
+                for child in sorted(item.rglob("*"), key=lambda path: str(path).lower()):
+                    if not child.is_file():
+                        continue
+                    _append_discovered_asset(record, child)
+                continue
+
+            if not item.is_file():
+                continue
+
+            if _is_text_asset(item) and not _is_subject_design_doc(item):
+                continue
+
+            subject_name = _infer_subject_name(item)
+            record = discovered.setdefault(subject_name, _build_discovered_subject_record(subject_name))
+            _append_unique(record["source_paths"], str(item))
+            _append_discovered_asset(record, item)
+
+        discovered_subjects = []
+        for subject_name, record in discovered.items():
+            if subject_name in registered_subject_names:
+                continue
+            if not record["design_docs"] and not record["images"] and not record["source_paths"]:
+                continue
+            discovered_subjects.append(record)
+
+        discovered_subjects.sort(key=lambda item: item["name"])
+        return {
+            "project_name": project_name,
+            "subject_root": str(subjects_dir),
+            "registered_subject_names": registered_subject_names,
+            "discovered_subjects": discovered_subjects,
+            "discovered_count": len(discovered_subjects),
+        }
+
     def save_state(self, name: str, state: Dict[str, Any]) -> None:
         """SubTask 1.5: 序列化项目状态到 JSON 文件"""
         state_file = self._get_state_file(name)
@@ -215,6 +271,22 @@ class StateManager:
         """获取某集的主目录"""
         return self._get_project_dir(project_name) / "episodes" / episode_id
 
+    def _get_registered_subject_names(self, project_name: str) -> List[str]:
+        state_file = self._get_state_file(project_name)
+        if not state_file.exists():
+            return []
+        try:
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception:
+            return []
+        subjects = state.get("subjects", []) or []
+        names = []
+        for subject in subjects:
+            if isinstance(subject, dict) and subject.get("name"):
+                names.append(str(subject["name"]))
+        return names
+
 
 def _deep_merge_dicts(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
     result = dict(base)
@@ -225,3 +297,51 @@ def _deep_merge_dicts(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[st
             continue
         result[key] = value
     return result
+
+
+def _build_discovered_subject_record(subject_name: str) -> Dict[str, Any]:
+    return {
+        "name": subject_name,
+        "status": "discovered",
+        "design_docs": [],
+        "images": [],
+        "source_paths": [],
+    }
+
+
+def _append_discovered_asset(record: Dict[str, Any], asset_path: Path) -> None:
+    asset_record = {"path": str(asset_path)}
+    if _is_text_asset(asset_path):
+        _append_unique(record["design_docs"], asset_record)
+    elif _is_image_asset(asset_path):
+        _append_unique(record["images"], asset_record)
+
+
+def _append_unique(items: List[Any], value: Any) -> None:
+    if value not in items:
+        items.append(value)
+
+
+def _is_text_asset(path: Path) -> bool:
+    return path.suffix.lower() in {".md", ".markdown", ".txt"}
+
+
+def _is_subject_design_doc(path: Path) -> bool:
+    stem = path.stem.strip()
+    return any(
+        stem.endswith(suffix)
+        for suffix in ["_角色设定", "_场景设定", "_物品设定", "_设定", "-设定", " 设定"]
+    )
+
+
+def _is_image_asset(path: Path) -> bool:
+    return path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+
+
+def _infer_subject_name(path: Path) -> str:
+    stem = path.stem.strip()
+    for suffix in ["_角色设定", "_场景设定", "_物品设定", "_设定", "-设定", " 设定"]:
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)].strip()
+            break
+    return stem or path.stem

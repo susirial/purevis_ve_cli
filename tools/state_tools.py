@@ -68,6 +68,19 @@ def get_project_state(project_name: str = None) -> Dict[str, Any]:
     except Exception as e:
         return {"error": f"读取项目状态失败: {e}"}
 
+def discover_project_subjects_state(project_name: str) -> Dict[str, Any]:
+    """
+    当项目状态中的 subjects 为空，但用户怀疑项目目录中已存在角色、场景设定文件或主体素材时，调用此工具做只读扫描。
+    工具会检查 projects/<project_name>/subjects/ 下的设定文档、主体目录和图片文件，并返回“已存在但尚未登记到状态”的主体线索。
+    """
+    sm = StateManager()
+    try:
+        return sm.discover_subject_assets(project_name)
+    except FileNotFoundError:
+        return {"error": f"项目 '{project_name}' 不存在或尚未初始化状态。"}
+    except Exception as e:
+        return {"error": f"扫描项目主体目录失败: {e}"}
+
 def add_subject_image_state(project_name: str, subject_name: str, subject_type: str, image_path: str, description: str = "", variant_desc: str = "参考图") -> Dict[str, Any]:
     """
     向项目的主体库（Subject Library）中添加一张主体图片（角色、场景、物品等）。
