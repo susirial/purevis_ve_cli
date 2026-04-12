@@ -2,9 +2,22 @@
 # API Keys 配置
 # ------------------------------------------------------------------------------
 
-# 火山方舟大模型配置 (用于对话、写剧本、审图等能力）
+# VeADK Agent 显式模型配置（用于对话、调度、写剧本、审图等能力）
+# 以下为所有 Agent 的全局默认值。各 Agent 会在构造时显式读取这些配置。
+# 如果不做细分，推荐只维护这一组全局变量。
+MODEL_AGENT_PROVIDER=openai
 MODEL_AGENT_NAME=doubao-seed-2-0-pro-260215
+MODEL_AGENT_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
 MODEL_AGENT_API_KEY=
+MODEL_AGENT_EXTRA_CONFIG=
+
+# 可选：按 Agent 单独覆盖模型配置。优先级高于上面的全局默认值。
+# 支持的 Agent 名称：ORCHESTRATOR / DIRECTOR / VISUAL_DIRECTOR / IMAGE_GEN / VIDEO_GEN / VISION_ANALYZER
+# 示例：
+#MODEL_ORCHESTRATOR_NAME=doubao-seed-2-0-pro-260215
+#MODEL_ORCHESTRATOR_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
+#MODEL_ORCHESTRATOR_API_KEY=
+#MODEL_ORCHESTRATOR_EXTRA_CONFIG={"temperature":0.2}
 
 # 火山引擎内置工具(如 web_search) 需要的 AK 和 SK（预留，咱不需要）
 #VOLCENGINE_ACCESS_KEY=your_ak_here

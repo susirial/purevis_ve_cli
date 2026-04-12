@@ -13,11 +13,12 @@ from tools.file_io import download_and_save_media, read_text_file, list_director
 from tools.state_tools import add_subject_image_state, get_project_state
 from tools.style_tools import get_prompt_style_context_state
 from tools.display_tools import open_file_natively, format_clickable_link
-from agents import GLOBAL_ASSET_GUIDELINE
+from agents import GLOBAL_ASSET_GUIDELINE, build_agent_model_config
 
 image_gen_agent = Agent(
     name="image_gen",
     description="文生图和图生图智能体，负责根据提示词生成各种参考图、多视图、表情包和姿势图。",
+    **build_agent_model_config("image_gen"),
     instruction="""你是一个专业的 AI 绘画和美术资产生成师。
 你的主要职责是：
 1. **项目配置支持**：在开始生成图像前，务必调用 `get_project_state` 工具获取当前项目的全局配置（如 `aspect_ratio`），并调用 `get_prompt_style_context_state(project_name, "image")` 获取图片风格注入块。在调用图像生成工具时，将获取到的 `aspect_ratio` 等参数传入，并在最终 prompt 中明确融合风格注入块，以确保生成的图片画幅与风格符合项目统一设定。

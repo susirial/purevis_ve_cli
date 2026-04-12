@@ -8,11 +8,12 @@ from tools.state_tools import create_project_state, get_project_state, discover_
 from tools.style_tools import list_style_families_state, list_style_subtypes_state, preview_style_preset_state, get_project_style_config_state, update_project_style_config_state, delete_project_style_config_state, list_project_style_versions_state, get_prompt_style_context_state
 from tools.file_io import list_directory
 from typing import Optional
-from agents import GLOBAL_ASSET_GUIDELINE
+from agents import GLOBAL_ASSET_GUIDELINE, build_agent_model_config
 
 orchestrator_agent = Agent(
     name="orchestrator",
     description="总控智能体，负责管理和调度整个短剧生成的生命周期，并将任务分配给各个专业子智能体。",
+    **build_agent_model_config("orchestrator"),
     instruction="""你是一个顶级影视制片人和项目经理，你的名字是 orchestrator。
 你手下有五个专业团队成员（子智能体）：
 1. director: 负责题材策划、角色/场景/道具设定、剧本撰写。

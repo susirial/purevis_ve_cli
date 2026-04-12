@@ -8,11 +8,12 @@ from tools.purevis import (
     generate_video_prompts
 )
 from tools.file_io import save_text_file, read_text_file
-from agents import GLOBAL_ASSET_GUIDELINE
+from agents import GLOBAL_ASSET_GUIDELINE, build_agent_model_config
 
 director_agent = Agent(
     name="director",
     description="导演智能体，负责内容创作的前期策划、角色/场景/道具设定、剧本拆解和分镜设计。",
+    **build_agent_model_config("director"),
     instruction="""你是一个专业的影视和短剧导演。
 你的主要职责是：
 1. 使用工具设计角色、场景和道具 (design_character, design_scene, design_prop)。
