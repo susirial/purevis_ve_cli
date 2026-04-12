@@ -267,6 +267,82 @@ class StateManager:
         self.save_state(project_name, state)
         return state
 
+    def delete_subject(self, project_name: str, subject_name: str) -> Dict[str, Any]:
+        project_dir = self._get_project_dir(project_name)
+        if not project_dir.exists():
+            raise FileNotFoundError(f"未找到项目 '{project_name}' 的目录。")
+
+        state = self.load_state(project_name)
+        subjects = state.get("subjects", []) or []
+        remaining_subjects = []
+        removed_subjects = []
+        deleted_paths: List[str] = []
+        missing_paths: List[str] = []
+
+        for subject in subjects:
+            if isinstance(subject, dict) and subject.get("name") == subject_name:
+                removed_subjects.append(subject)
+                continue
+            remaining_subjects.append(subject)
+
+        state["subjects"] = remaining_subjects
+
+        subjects_dir = project_dir / "subjects"
+        subject_dir = subjects_dir / subject_name
+        if subjects_dir.exists():
+            if subject_dir.exists():
+                shutil.rmtree(subject_dir)
+                deleted_paths.append(str(subject_dir))
+
+            for item in sorted(subjects_dir.iterdir(), key=lambda path: path.name.lower()):
+                if not item.is_file():
+                    continue
+                if _infer_subject_name(item) != subject_name:
+                    continue
+                item.unlink(missing_ok=True)
+                deleted_paths.append(str(item))
+
+        for removed_subject in removed_subjects:
+            for image in removed_subject.get("images", []) or []:
+                image_path = Path(str(image.get("path", "")).strip())
+                if not str(image_path):
+                    continue
+                try:
+                    if subject_dir.exists() is False and image_path.is_absolute() and image_path.is_relative_to(subject_dir):
+                        image_path_str = str(image_path)
+                        if image_path_str not in deleted_paths:
+                            deleted_paths.append(image_path_str)
+                        continue
+                except AttributeError:
+                    try:
+                        image_path.relative_to(subject_dir)
+                        image_path_str = str(image_path)
+                        if image_path_str not in deleted_paths:
+                            deleted_paths.append(image_path_str)
+                        continue
+                    except ValueError:
+                        pass
+                if image_path.exists():
+                    if image_path.is_dir():
+                        shutil.rmtree(image_path)
+                    else:
+                        image_path.unlink(missing_ok=True)
+                    image_path_str = str(image_path)
+                    if image_path_str not in deleted_paths:
+                        deleted_paths.append(image_path_str)
+                elif str(image_path):
+                    missing_paths.append(str(image_path))
+
+        self.save_state(project_name, state)
+        return {
+            "project_name": project_name,
+            "subject_name": subject_name,
+            "deleted_subject": bool(removed_subjects),
+            "deleted_paths": deleted_paths,
+            "missing_paths": missing_paths,
+            "remaining_subject_count": len(state.get("subjects", [])),
+        }
+
     def get_episode_dir(self, project_name: str, episode_id: str) -> Path:
         """获取某集的主目录"""
         return self._get_project_dir(project_name) / "episodes" / episode_id

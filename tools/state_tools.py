@@ -114,6 +114,19 @@ def add_subject_image_state(project_name: str, subject_name: str, subject_type: 
     except Exception as e:
         return {"error": f"添加主体图片失败: {e}"}
 
+def delete_subject(project_name: str, subject_name: str) -> Dict[str, Any]:
+    """
+    删除某个主体及其在 subjects/ 下的相关素材，并同步更新项目状态。
+    适用于角色、场景、物品等主体资产的整体清理。
+    """
+    sm = StateManager()
+    try:
+        return sm.delete_subject(project_name=project_name, subject_name=subject_name)
+    except FileNotFoundError as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": f"删除主体失败: {e}"}
+
 def update_project_settings_state(project_name: str, settings: Dict[str, Any]) -> Dict[str, Any]:
     """
     更新项目的全局配置项（如视觉风格 art_style、目标媒介 aspect_ratio 等）。

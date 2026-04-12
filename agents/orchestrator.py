@@ -4,9 +4,9 @@ from agents.visual_director import visual_director_agent
 from agents.image_gen import image_gen_agent
 from agents.video_gen import video_gen_agent
 from agents.vision_analyzer import vision_analyzer_agent
-from tools.state_tools import create_project_state, get_project_state, discover_project_subjects_state, add_episode_state, list_all_projects_state, open_project_dashboard_state, update_project_settings_state
+from tools.state_tools import create_project_state, get_project_state, discover_project_subjects_state, add_episode_state, list_all_projects_state, open_project_dashboard_state, update_project_settings_state, delete_subject
 from tools.style_tools import list_style_families_state, list_style_subtypes_state, preview_style_preset_state, get_project_style_config_state, update_project_style_config_state, delete_project_style_config_state, list_project_style_versions_state, get_prompt_style_context_state
-from tools.file_io import list_directory
+from tools.file_io import list_directory, delete_file
 from typing import Optional
 from agents import GLOBAL_ASSET_GUIDELINE, build_agent_model_config
 
@@ -60,6 +60,7 @@ orchestrator_agent = Agent(
 - 当用户询问项目有哪些角色、进展到哪一步，或者你要生成角色图片时，你必须调用 `get_project_state` 读取 JSON 数据。**如果用户想直观地查看当前生成了哪些图片资产，你必须调用 `open_project_dashboard_state` 工具自动为其打开全量资产画廊。**
 - **主体查询兜底规则**：当用户询问某个项目有哪些角色、场景、主体资产时，如果 `get_project_state` 返回的 `subjects` 为空，不要立刻断言项目没有角色或场景资产。你必须继续调用 `discover_project_subjects_state` 对项目目录下的 `subjects/` 做只读扫描。
 - **主体查询回复规则**：如果 `discover_project_subjects_state` 发现了设定文档、主体目录或图片文件，你必须明确告诉用户“当前状态索引中暂无已登记主体资产，但目录中发现了已有设定或素材文件”，不要直接说“没有角色”。只有在状态为空且目录扫描也没有发现主体线索时，才可以引导用户开始新的角色或场景设定工作。
+- **删除工具规则**：当用户明确要求删除主体资产时，优先使用 `delete_subject` 删除整个主体及其在 `subjects/` 下的相关文件，并同步更新状态；当用户明确要求删除单个具体文件或目录时，使用 `delete_file` 删除仓库内指定路径。
 - **重要**：如果用户没有提供项目名称，你可以调用 `list_all_projects_state` 列出目前已有的所有项目供用户选择。
 - **风格治理规则**：当用户要求查看、切换、回滚风格配置时，优先使用 `get_project_style_config_state`、`update_project_style_config_state`、`delete_project_style_config_state`、`list_project_style_versions_state`，不要直接手写零散的风格字符串覆盖整个 settings。
 - **风格触发规则**：当用户输入包含风格词、审美词、参考风格、媒介适配诉求，或者像“有没有相关设定”“推荐一下风格”“这种风格适合什么”“偏二次元/写实/诗意/宏大”等表达时，优先将其识别为“结构化风格配置意图”，不要立刻转交给 `director`。
@@ -97,6 +98,8 @@ orchestrator_agent = Agent(
         add_episode_state,
         list_all_projects_state,
         open_project_dashboard_state,
-        list_directory
+        list_directory,
+        delete_subject,
+        delete_file
     ]
 )

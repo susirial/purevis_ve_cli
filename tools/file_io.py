@@ -1,4 +1,5 @@
 import os
+import shutil
 import urllib.request
 from pathlib import Path
 
@@ -78,3 +79,30 @@ def download_and_save_media(url: str, filepath: str) -> None:
     with urllib.request.urlopen(req) as response:
         with open(path, "wb") as f:
             f.write(response.read())
+
+def delete_file(filepath: str) -> str:
+    """
+    删除仓库内的文件或目录。
+    仅允许删除当前项目仓库中的路径，防止越界删除。
+    """
+    path = Path(filepath).expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    else:
+        path = path.resolve()
+
+    repo_root = Path(__file__).resolve().parent.parent
+    try:
+        path.relative_to(repo_root)
+    except ValueError:
+        raise ValueError(f"不允许删除仓库外的路径: {filepath}")
+
+    if not path.exists():
+        raise FileNotFoundError(f"路径不存在: {filepath}")
+
+    if path.is_dir():
+        shutil.rmtree(path)
+        return f"已删除目录: {path}"
+
+    path.unlink()
+    return f"已删除文件: {path}"
