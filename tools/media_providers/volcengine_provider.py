@@ -341,69 +341,82 @@ Key rules:
 - Keep each shot segment to 3-5 seconds maximum for best AI video generation results"""
 
 _SYS_MULTI_VIEW = """\
-You are a professional character turnaround sheet artist. Generate a multi-view character reference sheet.
+You are a professional character layout-sheet artist. Generate a single 16:9 multi-view character board based strictly on reference image 1.
 
-The image MUST show the SAME character from multiple angles arranged in a single image:
-- Front view (正面): Character facing camera directly, neutral pose, arms slightly away from body
-- 3/4 Front view (3/4正面): 45-degree angle showing depth of facial features and body
-- Side view (侧面): Perfect profile showing silhouette, nose bridge, hair volume, outfit layering
-- 3/4 Back view (3/4背面): 45-degree from behind showing hair back, outfit details from behind
-- Back view (背面): Directly from behind showing hair, back of outfit, accessories
+Layout requirements:
+- The output is one single collage image in 16:9 ratio
+- Left 1/3: one large frontal face close-up portrait
+- Right 2/3: three full-body columns in this exact order: front view, 3/4 side view, back view
+- No dividing lines, no labels, no text, no watermark, no UI elements
 
-Requirements:
-- CLEAN WHITE BACKGROUND — no environment, no props, no shadows on ground
-- All views must show IDENTICAL character: same face, same hair, same outfit, same proportions
-- Professional character sheet layout with clear separation between views
-- Consistent lighting across all views: soft front-lit studio lighting
-- Full body visible in each view from head to feet
-- High detail on clothing seams, accessories, hair flow, fabric texture
-- Style: professional character design turnaround sheet, concept art quality"""
+Panel requirements:
+- Left 1/3 portrait: frontal close-up, face occupies a large area, complete head silhouette visible, hair must never be cropped out of frame, facial features and hairstyle details must be crisp
+- Right column 1: front full-body view, character fully visible from head to shoes, hairstyle and footwear fully shown
+- Right column 2: 3/4 side full-body view, character fully visible from head to shoes, hairstyle and footwear fully shown
+- Right column 3: back full-body view, character fully visible from head to shoes, hairstyle and footwear fully shown
+
+Consistency requirements:
+- All four panels must depict the exact same character identity, outfit, color palette, body proportions, and art style
+- Character identity, hairstyle, clothing design, accessories, and color design must follow reference image 1
+- Do not change the character's identity
+- Do not add props, weapons, extra accessories, extra characters, or environmental storytelling elements
+- Use only a plain neutral background; if no neutral background is specified upstream, use a clean white studio background
+- Maintain clean production-sheet readability, soft studio lighting, full-body completeness, and high material detail"""
 
 _SYS_EXPRESSION_SHEET = """\
-You are a professional character expression sheet artist for animation and film production.
+You are a professional character expression-sheet artist. Generate a single-image 3x3 expression board based strictly on reference image 1.
 
-Generate a multi-expression reference sheet showing the SAME character displaying different emotions, arranged in a grid layout on a single image.
+Layout requirements:
+- One single image only
+- 3x3 grid layout with nine expression panels
+- No dividing lines, no labels, no text, no watermark, no UI elements
 
-Required expressions (minimum 9, arranged in 3x3 grid):
-Row 1: Neutral/Default | Happy/Joyful (bright smile, raised cheeks) | Laughing (open mouth, squinted eyes, visible teeth)
-Row 2: Sad/Melancholic (downturned mouth, glistening eyes) | Angry/Furious (furrowed brows, clenched jaw, flared nostrils) | Surprised/Shocked (wide eyes, raised eyebrows, open mouth)
-Row 3: Fearful/Anxious (tense features, wide eyes, slight recoil) | Disgusted/Contemptuous (wrinkled nose, asymmetric lip curl) | Determined/Resolute (set jaw, focused gaze, slight forward lean)
+Panel requirements:
+- Each panel is a close-up portrait showing head and upper shoulders only
+- Every panel must include a complete head silhouette; hair must never be cropped out of frame
+- Facial features, hairstyle, hairline, eyebrow shape, eye shape, nose, mouth, jawline, and skin tone must remain consistent across all nine panels
 
-Requirements:
-- CLEAN WHITE BACKGROUND for all expressions
-- Consistent close-up framing: head and upper shoulders only
-- IDENTICAL character identity across all panels: same face structure, same hair, same skin tone
-- Each expression must show distinct micro-expressions: eyebrow position, eye shape, mouth curve, nostril flare, cheek tension
-- Professional expression sheet layout with clear grid separation
-- Soft, even studio lighting — no dramatic shadows that obscure facial details
-- Style: professional character expression sheet, animation reference quality, ultra detailed facial features"""
+Required expressions in order:
+- Row 1: neutral, happy, laughing
+- Row 2: sad, angry, surprised
+- Row 3: fearful, disgusted, determined
+
+Consistency requirements:
+- All nine panels must depict the exact same character identity, same hairstyle, same outfit neckline/visible accessories, same color palette, and same art style
+- Character identity, face design, hairstyle, clothing hints, and accessories must follow reference image 1
+- Do not change the character's identity
+- Do not add props, weapons, extra accessories, extra characters, or environmental storytelling elements
+- Use only a plain neutral background; if no neutral background is specified upstream, use a clean white studio background
+- Maintain soft even studio lighting, crisp facial readability, and strong micro-expression clarity"""
 
 _SYS_POSE_SHEET = """\
-You are a professional character pose sheet artist for animation, film, and game production.
+You are a professional character pose-sheet artist. Generate a single-image 16:9 pose board based strictly on reference image 1.
 
-Generate a multi-pose action reference sheet showing the SAME character in different dynamic poses, arranged in a grid layout on a single image.
+Layout requirements:
+- One single image only
+- 3x2 or 3x3 grid layout with clean production-sheet readability
+- No dividing lines, no labels, no text, no watermark, no UI elements
 
-Required poses (minimum 6-9, suggest 3x3 or 3x2 grid):
-- Idle/Standing: Relaxed neutral stance revealing personality through weight distribution and hand placement
-- Walking/Striding: Mid-stride showing natural arm swing and body rotation
-- Running/Sprinting: Dynamic full-speed pose with clear line of action, trailing hair/cloth
-- Action Pose 1: Character-specific signature action (fighting stance / casting spell / drawing weapon / dancing / crafting — based on character role)
-- Action Pose 2: A different dynamic action showing range of motion
-- Sitting/Resting: Casual seated pose showing character personality
-- Emotional Pose: A pose that conveys strong emotion through body language alone (no facial close-up needed)
-- Interaction Pose: Character interacting with an imagined prop or environment element
-- Power/Signature Pose: The character's most iconic, silhouette-readable pose
+Required poses:
+- idle standing
+- walking mid-stride
+- running or sprinting
+- signature action pose
+- seated or resting pose
+- iconic power pose
 
-Requirements:
-- CLEAN WHITE BACKGROUND — no environment elements
-- Full body visible in every pose from head to feet
-- IDENTICAL character across all panels: same outfit, same proportions, same design
-- Dynamic line of action clearly readable in action poses
-- Natural weight distribution and balance (or deliberate imbalance for dynamic poses)
-- Clothing and hair react to motion: flowing, stretching, compressing realistically
-- Professional pose sheet layout with clear separation between poses
-- Consistent soft studio lighting across all panels
-- Style: professional character pose sheet, action reference quality, dynamic anatomy"""
+Panel requirements:
+- Every pose must show the complete body from head to shoes
+- Hair, hands, feet, footwear, and silhouette must be fully visible and never cropped
+- The line of action must be clear and readable in every dynamic pose
+
+Consistency requirements:
+- All panels must depict the exact same character identity, outfit, color palette, hairstyle, body proportions, and art style
+- Character identity, hairstyle, clothing design, accessories, and color design must follow reference image 1
+- Do not change the character's identity
+- Do not add props, weapons, extra accessories, extra characters, or environmental storytelling elements unless they already belong to the base design shown in reference image 1
+- Use only a plain neutral background; if no neutral background is specified upstream, use a clean white studio background
+- Maintain soft studio lighting, full-body completeness, clean anatomy, and realistic cloth/hair reaction to movement"""
 
 
 @register_provider("volcengine_ark")
@@ -544,15 +557,15 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     ) -> Dict[str, Any]:
         full_prompt = (
             f"{prompt}\n"
-            f"Professional character turnaround sheet of {character_name}. "
-            "Show the SAME character from 5 angles in a single image: "
-            "front view, 3/4 front view, side profile, 3/4 back view, and back view. "
-            "Clean white background, no environment, no props. "
-            "Identical character design in every view: same face, hair, outfit, proportions. "
-            "Full body from head to feet, consistent soft studio lighting. "
-            "Professional character design sheet layout, concept art quality, "
-            "ultra detailed, 8k, masterpiece. "
-            "No text, no labels, no watermark, no UI elements."
+            f"根据输入图1中 {character_name} 的角色参考图，生成角色多视图拼图（单张图，16:9）。 "
+            "左侧 1/3 是角色大脸特写照，右侧 2/3 依次是角色的正面全身照、3/4 侧面全身照、背面全身照。 "
+            "无任何分割线，无文字，无标签，无水印，无 UI 元素。 "
+            "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。 "
+            "左侧特写必须是正面视角，脸部占大比例，务必包含完整头部轮廓，头发不得被裁切出画框，清晰展示五官与发型细节。 "
+            "右侧三列必须全部从头到脚完整展示，包含完整发型和鞋子，不得裁切四肢，不得遗漏鞋面或鞋底。 "
+            "四个视图必须是同一角色、同一服饰与配色、同一画风、同一身份设定。 "
+            "造型、画风、着装、发型、配饰都严格参考输入图1，不得改变角色身份，不得新增道具、武器、挂件、额外角色或场景叙事元素。 "
+            "强调 production-ready character layout sheet、consistent design across all views、white or neutral plain background、full body completeness、4K、high quality、ultra detailed、masterpiece。"
         )
         return self.generate_image(
             full_prompt,
@@ -565,19 +578,16 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     ) -> Dict[str, Any]:
         full_prompt = (
             f"{prompt}\n"
-            f"Professional expression sheet of character {character_name}. "
-            "3x3 grid layout showing 9 distinct emotions on a CLEAN WHITE BACKGROUND. "
-            "Row 1: Neutral | Happy (bright smile, raised cheeks) | Laughing (open mouth, squinted eyes). "
-            "Row 2: Sad (downturned mouth, glistening eyes) | Angry (furrowed brows, clenched jaw) | "
-            "Surprised (wide eyes, raised eyebrows, open mouth). "
-            "Row 3: Fearful (tense, wide eyes) | Disgusted (wrinkled nose, lip curl) | "
-            "Determined (set jaw, focused gaze). "
-            "Close-up framing: head and upper shoulders only in each panel. "
-            "IDENTICAL character identity across all panels: same face structure, hair, skin tone. "
-            "Each expression shows distinct micro-expressions. "
-            "Soft even studio lighting, no dramatic shadows. "
-            "Professional animation expression reference sheet, ultra detailed facial features, 8k, masterpiece. "
-            "No text, no labels, no watermark."
+            f"根据输入图1中 {character_name} 的角色参考图，生成角色表情设定拼图（单张图，3x3）。 "
+            "单张图共九格，顺序固定为：第一行 neutral / happy / laughing；第二行 sad / angry / surprised；第三行 fearful / disgusted / determined。 "
+            "无任何分割线，无文字，无标签，无水印，无 UI 元素。 "
+            "每一格都必须是角色头部到上肩的近景特写，务必包含完整头部轮廓，头发不得裁切出画框。 "
+            "九格必须保持同一角色身份、同一发型、同一发色、同一服装领口与可见配饰、同一画风与配色。 "
+            "五官结构、发际线、眉形、眼型、鼻子、嘴型、下颌线都要严格参考输入图1，不得改变角色身份。 "
+            "每个表情必须通过清晰的微表情差异体现：眉毛位置、眼睑开合、嘴角弧度、鼻翼、脸颊紧张度。 "
+            "不得新增道具、武器、挂件、额外角色或环境叙事元素。 "
+            "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。 "
+            "强调 production-ready expression sheet、consistent design across all panels、complete head silhouette、ultra detailed facial features、4K、high quality、masterpiece。"
         )
         return self.generate_image(
             full_prompt,
@@ -590,19 +600,16 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     ) -> Dict[str, Any]:
         full_prompt = (
             f"{prompt}\n"
-            f"Professional pose/action sheet of character {character_name}. "
-            "Grid layout (3x3 or 3x2) showing 6-9 distinct dynamic poses on CLEAN WHITE BACKGROUND. "
-            "Include: idle standing | walking mid-stride | running/sprinting with trailing cloth | "
-            "signature action pose (fighting/casting/drawing weapon) | second dynamic action | "
-            "casual sitting | emotional body language pose | interaction with imagined prop | "
-            "iconic power/signature pose. "
-            "Full body visible in every pose from head to feet. "
-            "IDENTICAL character across all panels: same outfit, proportions, design. "
-            "Dynamic line of action clearly readable. Natural weight distribution. "
-            "Clothing and hair react to motion realistically. "
-            "Consistent soft studio lighting, professional pose reference sheet quality, "
-            "ultra detailed, 8k, masterpiece. "
-            "No text, no labels, no watermark, no background elements."
+            f"根据输入图1中 {character_name} 的角色参考图，生成角色姿势设定拼图（单张图，16:9）。 "
+            "采用 3x2 或 3x3 的多格布局，至少包含六个姿势，顺序优先为：idle standing、walking mid-stride、running/sprinting、signature action pose、seated/resting pose、iconic power pose。 "
+            "无任何分割线，无文字，无标签，无水印，无 UI 元素。 "
+            "每一格都必须完整展示角色从头到脚的全身，包含完整发型、双手、双脚和鞋子，不得裁切肢体，不得遗漏鞋面或鞋底。 "
+            "所有格子必须是同一角色、同一服饰与配色、同一发型、同一体型比例、同一画风。 "
+            "造型、画风、着装、发型、配饰都严格参考输入图1，不得改变角色身份。 "
+            "不得新增道具、武器、挂件、额外角色或环境叙事元素；除非该元素已经属于输入图1中的基础角色设计。 "
+            "动作可以变化，但角色设定不能漂移；动态姿势必须具备清晰的动作线、自然重心、合理的布料与头发运动反馈。 "
+            "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。 "
+            "强调 production-ready pose sheet、consistent design across all panels、full body completeness、clear silhouette readability、4K、high quality、ultra detailed、masterpiece。"
         )
         return self.generate_image(
             full_prompt,

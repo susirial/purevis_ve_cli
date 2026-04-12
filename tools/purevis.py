@@ -263,7 +263,18 @@ def generate_multi_view(prompt: str, character_name: str, ref_image: str) -> dic
     provider = get_media_provider()
     if getattr(provider, "supports_multi_view", False):
         return provider.generate_multi_view(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = f"\n\n请生成角色多视图转身表：角色名={character_name}，包含正面/左侧/右侧/背面，多格排版，风格一致。"
+    suffix = (
+        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色多视图拼图（单张图，16:9）。"
+        "左侧1/3是一张角色的大脸特写照，右侧2/3依次是角色的正面全身照、3/4侧面全身照、背面的全身照。"
+        "无任何分割线，无文字，无水印。"
+        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
+        "左1/3：角色大脸特写照（正面视角，脸部占大比例，务必包含完整头部轮廓，头发不得被裁切出画框，清晰展示五官与发型细节）。"
+        "右第1列：角色正面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
+        "右第2列：角色3/4侧面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
+        "右第3列：角色背面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
+        "四个视图必须是同一角色、同一服饰与配色、同一画风。"
+        "造型、画风、着装等所有设计都严格参考图1，不要改变角色身份，不要新增道具、武器、挂件、额外人物或环境叙事元素。"
+    )
     return generate_image(prompt + suffix, input_images=[ref_image])
 
 def generate_expression_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
@@ -273,7 +284,17 @@ def generate_expression_sheet(prompt: str, character_name: str, ref_image: str) 
     provider = get_media_provider()
     if getattr(provider, "supports_expression", False):
         return provider.generate_expression_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = f"\n\n请生成角色表情表：角色名={character_name}，至少8种表情，多格排版，面部特征与服装保持一致。"
+    suffix = (
+        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色表情设定拼图（单张图，3x3）。"
+        "单张图共九格，顺序固定为：第一行 neutral / happy / laughing；第二行 sad / angry / surprised；第三行 fearful / disgusted / determined。"
+        "无任何分割线，无文字，无标签，无水印，无 UI 元素。"
+        "每一格都必须是角色头部到上肩的近景特写，务必包含完整头部轮廓，头发不得裁切出画框。"
+        "九格必须保持同一角色身份、同一发型、同一发色、同一服装领口与可见配饰、同一画风与配色。"
+        "五官结构、发际线、眉形、眼型、鼻子、嘴型、下颌线都要严格参考输入图1，不得改变角色身份。"
+        "每个表情必须通过清晰的微表情差异体现：眉毛位置、眼睑开合、嘴角弧度、鼻翼、脸颊紧张度。"
+        "不得新增道具、武器、挂件、额外角色或环境叙事元素。"
+        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
+    )
     return generate_image(prompt + suffix, input_images=[ref_image])
 
 def generate_pose_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
@@ -283,7 +304,17 @@ def generate_pose_sheet(prompt: str, character_name: str, ref_image: str) -> dic
     provider = get_media_provider()
     if getattr(provider, "supports_pose", False):
         return provider.generate_pose_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = f"\n\n请生成角色姿势表：角色名={character_name}，包含站姿/走路/跑步/坐姿/动作姿势等，多格排版，比例一致。"
+    suffix = (
+        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色姿势设定拼图（单张图，16:9）。"
+        "采用 3x2 或 3x3 的多格布局，至少包含六个姿势，顺序优先为：idle standing、walking mid-stride、running/sprinting、signature action pose、seated/resting pose、iconic power pose。"
+        "无任何分割线，无文字，无标签，无水印，无 UI 元素。"
+        "每一格都必须完整展示角色从头到脚的全身，包含完整发型、双手、双脚和鞋子，不得裁切肢体，不得遗漏鞋面或鞋底。"
+        "所有格子必须是同一角色、同一服饰与配色、同一发型、同一体型比例、同一画风。"
+        "造型、画风、着装、发型、配饰都严格参考输入图1，不得改变角色身份。"
+        "不得新增道具、武器、挂件、额外角色或环境叙事元素；除非该元素已经属于输入图1中的基础角色设计。"
+        "动作可以变化，但角色设定不能漂移；动态姿势必须具备清晰的动作线、自然重心、合理的布料与头发运动反馈。"
+        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
+    )
     return generate_image(prompt + suffix, input_images=[ref_image])
 
 def generate_video(prompt: str, input_images: list = None, duration: int = 12, aspect_ratio: str = "16:9", generate_audio: bool = True) -> dict:
