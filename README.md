@@ -8,6 +8,42 @@
 
 系统通过一个总控智能体 `orchestrator` 协调多个专业子智能体，实现从 **题材策划、角色/场景设定、剧本创作、图片分镜设计** 到 **图像与视频生成、视觉审核、资产落盘** 的完整闭环。同时，系统提供本地状态管理、风格配置治理、流式终端交互以及会话历史压缩能力，适合持续推进多轮创作项目。
 
+## 视觉设计展示：角色生成 · 多视图 · 封面设定
+
+以项目《武装歌姬天穹诗》为例，下面展示 PureVis 在“从 0 到可用资产”的关键产出：角色参考图、多视图一致性辅助素材，以及多套封面 Key Art 方案。它们不是单次出图的孤品，而是可被下游 **分镜、关键帧、视频合成** 直接复用的“可生产资产”。
+
+### 设计封面（Key Art Exploration）
+
+同一项目目标下并行探索不同叙事调性：史诗对峙、双姬咏唱、战损宿命。每个方案都可以作为 GitHub / 宣传页的头图候选，并能反向约束角色与场景的整体风格基调。
+
+<p align="center">
+  <img src="demo/sky_verse_cover_epic.jpg" width="32%" alt="Key Art - Epic Confrontation" />
+  <img src="demo/sky_verse_cover_duet.jpg" width="32%" alt="Key Art - Duet" />
+  <img src="demo/sky_verse_cover_ruins.jpg" width="32%" alt="Key Art - Ruins Narrative" />
+</p>
+
+### 角色生成（Subject Reference）
+
+将“身份 + 视觉符号 + 功能性装备 + 材质语言”绑定到同一套角色系统里：银蓝星辉与月弦乐器的清冷歌姬，与暗红荆棘镰刃的战斗歌姬形成强对比，便于在镜头语言中快速建立阵营与情绪张力。
+
+<p align="center">
+  <img src="demo/armed_diva_xingyao_ref.jpg" width="48%" alt="Character Reference - Xingyao" />
+  <img src="demo/armed_diva_shuangren_ref.jpg" width="48%" alt="Character Reference - Shuangren" />
+</p>
+
+### 多视图生成（一致性辅助素材）
+
+多视图不是“多角度截图”，而是为下游生产准备的约束器：同一套发型剪影、服装分件、道具比例与材质反射，被固定在可检索、可对照的版式里，显著降低后续分镜/关键帧阶段的人物漂移成本。
+
+<p align="center">
+  <img src="demo/armed_diva_xingyao_multiview.jpg" width="48%" alt="Multi-view Sheet - Xingyao" />
+  <img src="demo/armed_diva_shuangren_multiview.jpg" width="48%" alt="Multi-view Sheet - Shuangren" />
+</p>
+
+### 资产落盘与可复用设定
+
+上述图片与设定会被自动落盘到 `output/projects/<项目名>/`，并与角色/场景/道具的设定文本、提示词、风格配置一起形成可追溯的“设计源文件”，便于团队协作与持续迭代：先锁定角色系统，再推进分镜与关键帧生产，最后进入视频合成。
+
 ## 架构设计概览
 
 本项目的入口是 `purevis_agent.py`，其核心运行机制可以概括为以下五层：
