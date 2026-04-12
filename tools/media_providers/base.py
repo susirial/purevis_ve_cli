@@ -42,6 +42,7 @@ class BaseMediaProvider(ABC):
         self,
         prompt: str,
         entity_type: str,
+        reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
@@ -56,7 +57,14 @@ class BaseMediaProvider(ABC):
     def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持姿势表生成。")
 
-    def design_character(self, character_name: str, character_brief: str, style: str, story_context: str = "") -> Dict[str, Any]:
+    def design_character(
+        self,
+        character_name: str,
+        character_brief: str,
+        style: str,
+        story_context: str = "",
+        reference_variant: str = "pure_character",
+    ) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持角色设计。")
 
     def design_scene(self, scene_name: str, scene_brief: str, style: str, story_context: str = "") -> Dict[str, Any]:

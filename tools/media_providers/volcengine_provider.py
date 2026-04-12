@@ -13,6 +13,7 @@ from tools.volcengine_api import (
     get_tool_vision_model_name,
     local_chat_completions,
     local_generate_image,
+    local_generate_reference_image,
     local_generate_video,
     local_query_task_status,
 )
@@ -142,7 +143,7 @@ Return a single valid JSON object with these keys:
   - Complete physical description: face shape, eyes, nose, mouth, skin tone, body type, height impression, build
   - Hair: color, style, length, texture, any styling details
   - Clothing layers: headwear, top, outer layer, bottom, footwear — each with material, color, pattern, fit
-  - Accessories & props: jewelry, weapons, bags, cultural ornaments
+  - Accessories & props: by default include only wearable or body-attached accessories that do not add extra subjects or handheld props; weapons, mounts, companions, pets, vehicles, or large handheld props are forbidden unless the user explicitly requests a complete character sheet variant
   - Pose: default standing pose with slight character-revealing attitude
   - Style directive matching the requested art style
   - Quality tags: "ultra detailed, 8k, masterpiece, professional character concept art"
@@ -535,17 +536,16 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         self,
         prompt: str,
         entity_type: str,
+        reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        full_prompt = (
-            f"{prompt}\n"
-            "Clean background, subject prominently centered, high resolution, "
-            "professional reference sheet quality, ultra detailed, sharp focus, "
-            "studio lighting, no text, no watermark."
-        )
-        return self.generate_image(
-            full_prompt, aspect_ratio=aspect_ratio, input_images=input_images,
+        return local_generate_reference_image(
+            prompt=prompt,
+            entity_type=entity_type,
+            reference_variant=reference_variant,
+            aspect_ratio=aspect_ratio,
+            input_images=input_images,
         )
 
     # ------------------------------------------------------------------
@@ -622,14 +622,36 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     # ------------------------------------------------------------------
 
     def design_character(
-        self, character_name: str, character_brief: str, style: str,
+        self,
+        character_name: str,
+        character_brief: str,
+        style: str,
         story_context: str = "",
+        reference_variant: str = "pure_character",
     ) -> Dict[str, Any]:
+        normalized_variant = (reference_variant or "pure_character").strip().lower()
+        if normalized_variant in {"full", "full_character", "full_character_sheet", "complete", "complete_character"}:
+            variant_rule = (
+                "角色参考图模式：完整角色设定图。可以包含明确要求的标志性武器或 hand-held props，"
+                "但不要加入坐骑、伴生体或额外角色，除非用户再次明确要求。"
+            )
+        elif normalized_variant in {"mounted", "with_mount", "mount", "mounted_character"}:
+            variant_rule = (
+                "角色参考图模式：带坐骑/伴生体的完整角色设定图。允许保留明确要求的坐骑、伴生体与标志性武器，"
+                "但角色仍必须是第一视觉主体，不要加入其他额外角色。"
+            )
+        else:
+            variant_rule = (
+                "角色参考图模式：默认纯人物参考图。提示词中不得出现武器、坐骑、宠物、伴生体、额外角色、交通工具、"
+                "大型手持道具或单独特写道具；只保留人物本体、服装、发型、体态和必要的穿戴式配饰。"
+            )
         user_prompt = (
             f"角色名称：{character_name}\n"
             f"角色简介：{character_brief}\n"
             f"风格：{style}\n"
-            f"背景故事：{story_context}\n\n"
+            f"背景故事：{story_context}\n"
+            f"参考图版本：{normalized_variant}\n"
+            f"参考图约束：{variant_rule}\n\n"
             "请设计这个角色的完整视觉形象。"
             "提示词中必须包含 'clean white background, character design sheet'。"
         )

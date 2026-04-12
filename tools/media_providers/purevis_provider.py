@@ -105,6 +105,7 @@ class PureVisMediaProvider(BaseMediaProvider):
         self,
         prompt: str,
         entity_type: str,
+        reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
@@ -148,7 +149,14 @@ class PureVisMediaProvider(BaseMediaProvider):
     def query_task_status(self, task_id: str) -> Dict[str, Any]:
         return _request_purevis_api(f"tasks/{task_id}", method="GET")
 
-    def design_character(self, character_name: str, character_brief: str, style: str, story_context: str = "") -> Dict[str, Any]:
+    def design_character(
+        self,
+        character_name: str,
+        character_brief: str,
+        style: str,
+        story_context: str = "",
+        reference_variant: str = "pure_character",
+    ) -> Dict[str, Any]:
         payload = {
             "character_name": character_name,
             "character_brief": character_brief,

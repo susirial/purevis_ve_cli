@@ -192,6 +192,46 @@ def local_generate_image(prompt: str, aspect_ratio: str = "", input_images: Opti
     return {"task_id": task_id}
 
 
+def local_generate_reference_image(
+    prompt: str,
+    entity_type: str,
+    reference_variant: str = "pure_character",
+    aspect_ratio: str = "",
+    input_images: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    variant = (reference_variant or "pure_character").strip().lower()
+    full_prompt = (
+        f"{prompt}\n"
+        "Clean background, subject prominently centered, high resolution, "
+        "professional reference sheet quality, ultra detailed, sharp focus, "
+        "studio lighting, no text, no watermark."
+    )
+    if (entity_type or "").strip().lower() == "character":
+        if variant in {"full", "full_character", "full_character_sheet", "complete", "complete_character"}:
+            full_prompt += (
+                " Full character sheet mode: single primary character only, clean white or neutral background, "
+                "signature weapon or identity-defining handheld props allowed only when explicitly requested in the prompt, "
+                "no mount, no companion, no extra character."
+            )
+        elif variant in {"mounted", "with_mount", "mount", "mounted_character"}:
+            full_prompt += (
+                " Mounted character sheet mode: keep one primary character as the visual focus, "
+                "allow only the explicitly requested mount or companion and explicitly requested signature weapon, "
+                "no extra characters, no crowd, no unrelated props."
+            )
+        else:
+            full_prompt += (
+                " Pure character reference mode: single character only, no mount, no companion, no pet, "
+                "no extra subject, no handheld prop, no weapon unless explicitly requested, "
+                "keep only the character body, clothing, hairstyle, silhouette and essential wearable accessories."
+            )
+    return local_generate_image(
+        prompt=full_prompt,
+        aspect_ratio=aspect_ratio,
+        input_images=input_images,
+    )
+
+
 def local_generate_video(
     prompt: str,
     input_images: Optional[List[str]] = None,

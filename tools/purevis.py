@@ -107,7 +107,40 @@ def _request_purevis_api(endpoint: str, payload: dict = None, method: str = "POS
 # Task 3: Skill APIs (Synchronous)
 # ==========================================
 
-def design_character(character_name: str, character_brief: str, style: str, story_context: str = "") -> dict:
+def _normalize_reference_variant(reference_variant: str) -> str:
+    variant = (reference_variant or "pure_character").strip().lower()
+    if variant in {"full", "full_character", "full_character_sheet", "complete", "complete_character"}:
+        return "full_character"
+    if variant in {"mounted", "with_mount", "mount"}:
+        return "mounted_character"
+    return "pure_character"
+
+
+def _character_reference_variant_instruction(reference_variant: str) -> str:
+    variant = _normalize_reference_variant(reference_variant)
+    if variant == "full_character":
+        return (
+            "角色参考图版本要求：完整角色设定图。允许保留角色的标志性武器、手持道具、挂件或其他与身份强绑定的 props，"
+            "但仍然必须保持 clean white background、单角色主体清晰、便于后续一致性控制。除非用户明确要求，不要引入坐骑或额外角色。"
+        )
+    if variant == "mounted_character":
+        return (
+            "角色参考图版本要求：带坐骑/伴生体的完整角色设定图。允许保留角色本体与明确指定的坐骑、伴生物或标志性武器，"
+            "但画面仍须以角色为主，保持 clean white background、主体清晰、便于后续一致性控制。不要引入未被明确要求的额外人物。"
+        )
+    return (
+        "角色参考图版本要求：默认纯人物参考图。只保留人物本体、服装、发型、体态与必要的穿戴式配饰；"
+        "不得出现武器、坐骑、宠物、伴生体、额外角色、额外手持道具或环境叙事元素。"
+    )
+
+
+def design_character(
+    character_name: str,
+    character_brief: str,
+    style: str,
+    story_context: str = "",
+    reference_variant: str = "pure_character",
+) -> dict:
     """
     Generate a character t2i prompt and Chinese description.
     
@@ -116,13 +149,17 @@ def design_character(character_name: str, character_brief: str, style: str, stor
         character_brief: Brief description of the character.
         style: Visual style (e.g., "Japanese anime", "realistic").
         story_context: Optional context of the story.
+        reference_variant: pure_character | full_character | mounted_character
     """
     provider = get_media_provider()
+    variant_instruction = _character_reference_variant_instruction(reference_variant)
+    merged_story_context = f"{story_context}\n{variant_instruction}".strip() if story_context else variant_instruction
     return provider.design_character(
         character_name=character_name,
         character_brief=character_brief,
         style=style,
-        story_context=story_context
+        story_context=merged_story_context,
+        reference_variant=_normalize_reference_variant(reference_variant),
     )
 
 def design_scene(scene_name: str, scene_brief: str, style: str, story_context: str = "") -> dict:
@@ -235,25 +272,36 @@ def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = Non
     provider = get_media_provider()
     return provider.generate_image(prompt=prompt, aspect_ratio=aspect_ratio, input_images=input_images)
 
-def generate_reference_image(prompt: str, entity_type: str, aspect_ratio: str = "", input_images: list = None) -> dict:
+def generate_reference_image(
+    prompt: str,
+    entity_type: str,
+    reference_variant: str = "pure_character",
+    aspect_ratio: str = "",
+    input_images: list = None,
+) -> dict:
     """
     Submit a reference sheet generation task with composition constraints.
     
     Args:
         prompt: 提示词描述。
         entity_type: character | scene | prop
+        reference_variant: 角色参考图模式，支持 pure_character | full_character | mounted_character
         aspect_ratio: 画幅比
         input_images: 如果需要基于已有图片生成参考图，可传入本地路径列表（同 generate_image）。
     """
     provider = get_media_provider()
+    normalized_variant = _normalize_reference_variant(reference_variant)
     if getattr(provider, "supports_reference", False):
         return provider.generate_reference_image(
             prompt=prompt,
             entity_type=entity_type,
+            reference_variant=normalized_variant,
             aspect_ratio=aspect_ratio,
             input_images=input_images,
         )
     suffix = f"\n\n请生成{entity_type}参考图：主体居中，干净背景，留白充足，便于后续图生图与一致性控制。"
+    if (entity_type or "").strip().lower() == "character":
+        suffix += "\n" + _character_reference_variant_instruction(normalized_variant)
     return generate_image(prompt + suffix, aspect_ratio=aspect_ratio, input_images=input_images)
 
 def generate_multi_view(prompt: str, character_name: str, ref_image: str) -> dict:
