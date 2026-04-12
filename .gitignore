@@ -16,3 +16,5 @@ dist/
 build/
 .trae/
 test_*.py
+output/
+.trae_agent_model_switch_design.md

@@ -5,12 +5,12 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 
+from core.model_config import get_tool_temperature
 from tools.media_providers.base import BaseMediaProvider
 from tools.media_providers.registry import register_provider
 from tools.volcengine_api import (
-    TEXT_MODEL_NAME,
-    VISION_MODEL_NAME,
     _encode_image_to_data_uri,
+    get_tool_vision_model_name,
     local_chat_completions,
     local_generate_image,
     local_generate_video,
@@ -413,14 +413,14 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     supports_pose: bool = True
     supports_reference: bool = True
 
-    def _call_llm_json(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
+    def _call_llm_json(self, system_prompt: str, user_prompt: str, tool_name: str) -> Dict[str, Any]:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         try:
             resp = local_chat_completions(
-                messages, temperature=0.7,
+                messages, temperature=get_tool_temperature(tool_name),
             )
             content = resp["choices"][0]["message"]["content"]
             return json.loads(_strip_json_fences(content))
@@ -443,8 +443,8 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         try:
             resp = local_chat_completions(
                 messages=messages,
-                model=VISION_MODEL_NAME,
-                temperature=0.7,
+                model=get_tool_vision_model_name(),
+                temperature=get_tool_temperature("VISION_ANALYZER"),
                 is_vision=True
             )
             
@@ -626,7 +626,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "请设计这个角色的完整视觉形象。"
             "提示词中必须包含 'clean white background, character design sheet'。"
         )
-        return self._call_llm_json(_SYS_DESIGN_CHARACTER, user_prompt)
+        return self._call_llm_json(_SYS_DESIGN_CHARACTER, user_prompt, "DESIGN_CHARACTER")
 
     def design_scene(
         self, scene_name: str, scene_brief: str, style: str,
@@ -640,7 +640,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "请设计这个场景的完整视觉概念。"
             "用灯光师的语言描述光影，用建筑师的语言描述空间。"
         )
-        return self._call_llm_json(_SYS_DESIGN_SCENE, user_prompt)
+        return self._call_llm_json(_SYS_DESIGN_SCENE, user_prompt, "DESIGN_SCENE")
 
     def design_prop(
         self, prop_name: str, prop_brief: str, style: str,
@@ -654,7 +654,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "请设计这个道具的完整视觉概念。"
             "描述材质时要让人能感受到光线与表面的交互。"
         )
-        return self._call_llm_json(_SYS_DESIGN_PROP, user_prompt)
+        return self._call_llm_json(_SYS_DESIGN_PROP, user_prompt, "DESIGN_PROP")
 
     # ------------------------------------------------------------------
     # Storyboard & prompts (LLM-powered)
@@ -676,7 +676,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "4. 保持180度规则和视线匹配的剪辑逻辑\n"
             "5. 情绪弧线清晰：铺垫→升级→转折→收尾"
         )
-        return self._call_llm_json(_SYS_BREAKDOWN_STORYBOARD, user_prompt)
+        return self._call_llm_json(_SYS_BREAKDOWN_STORYBOARD, user_prompt, "BREAKDOWN_STORYBOARD")
 
     def generate_keyframe_prompts(
         self, segments: List[Any], entity_names: List[str],
@@ -695,7 +695,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "4. composition_technique 必须从七种电影构图技法中选择并说明如何落地\n"
             f"5. 画面比例 {aspect_ratio} 必须在 prompt 和 prompt_bundle 中重复强调"
         )
-        return self._call_llm_json(_SYS_KEYFRAME_PROMPTS, user_prompt)
+        return self._call_llm_json(_SYS_KEYFRAME_PROMPTS, user_prompt, "GENERATE_KEYFRAME_PROMPTS")
 
     def generate_video_prompts(
         self, segments: List[Any], entity_names: List[str],
@@ -715,7 +715,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "5. 以一致性约束结尾：角色设计/光影逻辑/物理效果的连贯性\n"
             "6. 每个镜头片段控制在3-5秒以内"
         )
-        return self._call_llm_json(_SYS_VIDEO_PROMPTS, user_prompt)
+        return self._call_llm_json(_SYS_VIDEO_PROMPTS, user_prompt, "GENERATE_VIDEO_PROMPTS")
 
     # ------------------------------------------------------------------
     # Image analysis (Vision LLM)

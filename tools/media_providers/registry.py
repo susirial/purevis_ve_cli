@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Callable, Dict, Type
 
+from core.model_config import build_volcengine_ark_api_config
 from tools.media_providers.base import BaseMediaProvider, FeatureUnavailableError
 
 
@@ -25,11 +26,13 @@ def get_media_provider() -> BaseMediaProvider:
     if provider_name == "auto":
         if os.environ.get("PUREVIS_API_KEY"):
             provider_name = "purevis"
-        elif os.environ.get("MODEL_AGENT_API_KEY"):
+        elif build_volcengine_ark_api_config().get("api_key"):
             provider_name = "volcengine_ark"
         else:
             raise FeatureUnavailableError(
-                "未检测到可用的媒体生成服务：请设置 PUREVIS_API_KEY，或设置 MODEL_AGENT_API_KEY，并可选设置 MEDIA_PROVIDER 指定提供方。"
+                "未检测到可用的媒体生成服务：请设置 PUREVIS_API_KEY，或设置 VOLCENGINE_ARK_API_KEY。"
+                "兼容场景下也支持回退使用 MODEL_TOOL_VISION_ANALYZER_API_KEY 或 MODEL_AGENT_API_KEY，"
+                "并可选设置 MEDIA_PROVIDER 指定提供方。"
             )
 
     provider_cls = _PROVIDERS.get(provider_name)

@@ -2,7 +2,7 @@
 # API Keys 配置
 # ------------------------------------------------------------------------------
 
-# VeADK Agent 显式模型配置（用于对话、调度、写剧本、审图等能力）
+# VeADK Agent 显式模型配置（用于对话、调度、写剧本、总结等 Agent 层能力）
 # 以下为所有 Agent 的全局默认值。各 Agent 会在构造时显式读取这些配置。
 # 如果不做细分，推荐只维护这一组全局变量。
 MODEL_AGENT_PROVIDER=openai
@@ -10,6 +10,14 @@ MODEL_AGENT_NAME=doubao-seed-2-0-pro-260215
 MODEL_AGENT_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
 MODEL_AGENT_API_KEY=
 MODEL_AGENT_EXTRA_CONFIG=
+
+# GLM-5.1 示例（Z.AI OpenAI 兼容接口）
+# 如果希望把 orchestrator 及各 Agent 主模型切换到 GLM-5.1，可参考下面这组配置：
+# MODEL_AGENT_PROVIDER=openai
+# MODEL_AGENT_NAME=glm-5.1
+# MODEL_AGENT_API_BASE=https://api.z.ai/api/paas/v4/
+# MODEL_AGENT_API_KEY=<your_zai_api_key>
+# MODEL_AGENT_EXTRA_CONFIG=
 
 # 可选：按 Agent 单独覆盖模型配置。优先级高于上面的全局默认值。
 # 支持的 Agent 名称：ORCHESTRATOR / DIRECTOR / VISUAL_DIRECTOR / IMAGE_GEN / VIDEO_GEN / VISION_ANALYZER
@@ -19,13 +27,53 @@ MODEL_AGENT_EXTRA_CONFIG=
 #MODEL_ORCHESTRATOR_API_KEY=
 #MODEL_ORCHESTRATOR_EXTRA_CONFIG={"temperature":0.2}
 
+# 普通文本工具模型（角色/场景/道具设计、分镜拆解、关键帧提示词、视频提示词）
+# 如果不配置，默认继承上面的 MODEL_AGENT_*，因此会与系统主文本模型保持一致。
+#MODEL_TOOL_TEXT_PROVIDER=openai
+#MODEL_TOOL_TEXT_NAME=doubao-seed-2-0-pro-260215
+#MODEL_TOOL_TEXT_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
+#MODEL_TOOL_TEXT_API_KEY=
+#MODEL_TOOL_TEXT_EXTRA_CONFIG=
+
+# 如果 Agent 主模型已经切到 GLM-5.1，而普通文本工具也希望显式固定到 GLM-5.1，可使用：
+# MODEL_TOOL_TEXT_PROVIDER=openai
+# MODEL_TOOL_TEXT_NAME=glm-5.1
+# MODEL_TOOL_TEXT_API_BASE=https://api.z.ai/api/paas/v4/
+# MODEL_TOOL_TEXT_API_KEY=<your_zai_api_key>
+# MODEL_TOOL_TEXT_EXTRA_CONFIG=
+
+# 按工具分层的 temperature 配置（推荐）
+# 目标：创意设计偏高、结构化生成中等、图片分析偏低
+MODEL_TOOL_TEXT_TEMPERATURE_DEFAULT=0.45
+MODEL_TOOL_DESIGN_CHARACTER_TEMPERATURE=0.75
+MODEL_TOOL_DESIGN_SCENE_TEMPERATURE=0.65
+MODEL_TOOL_DESIGN_PROP_TEMPERATURE=0.60
+MODEL_TOOL_BREAKDOWN_STORYBOARD_TEMPERATURE=0.40
+MODEL_TOOL_GENERATE_KEYFRAME_PROMPTS_TEMPERATURE=0.45
+MODEL_TOOL_GENERATE_VIDEO_PROMPTS_TEMPERATURE=0.45
+MODEL_TOOL_VISION_ANALYZER_TEMPERATURE=0.15
+
+# 图片分析工具模型（固定视觉分析能力）
+# 推荐保持为 doubao-seed-2-0-pro-260215，不参与系统主文本模型切换。
+MODEL_TOOL_VISION_ANALYZER_PROVIDER=openai
+MODEL_TOOL_VISION_ANALYZER_NAME=doubao-seed-2-0-pro-260215
+MODEL_TOOL_VISION_ANALYZER_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
+MODEL_TOOL_VISION_ANALYZER_API_KEY=
+MODEL_TOOL_VISION_ANALYZER_EXTRA_CONFIG=
+
+# Volcengine ARK 媒体生成专用凭证（生图 / 生视频）
+# 推荐显式配置，避免当 MODEL_AGENT_* 切到其他供应商时影响媒体生成。
+VOLCENGINE_ARK_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
+VOLCENGINE_ARK_API_KEY=
+
 # 火山引擎内置工具(如 web_search) 需要的 AK 和 SK（预留，咱不需要）
 #VOLCENGINE_ACCESS_KEY=your_ak_here
 #VOLCENGINE_SECRET_KEY=your_sk_here
 
 # PureVis API Key
 # 【可选】如果配置了此 Key，系统默认优先使用 www.purevis.cn 进行生图和生视频，支持完整的高级工作流。
-# 如果不配置此 Key，系统会自动降级，使用上面的 MODEL_AGENT_API_KEY 去调用本地火山引擎大模型 (SeeDream/SeeDance)。
+# 如果不配置此 Key，系统会自动降级，优先使用上面的 VOLCENGINE_ARK_API_KEY 调用火山引擎方舟媒体能力；
+# 兼容场景下也支持回退到 MODEL_TOOL_VISION_ANALYZER_API_KEY 或 MODEL_AGENT_API_KEY。
 PUREVIS_API_KEY=
 
 # ------------------------------------------------------------------------------

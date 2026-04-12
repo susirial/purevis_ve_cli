@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from core.model_config import (
+    build_tool_text_model_config,
+    build_tool_vision_analyzer_model_config,
+    build_volcengine_ark_api_config,
+)
+
 try:
     from tools.image_utils import resize_and_compress_image
 except ImportError:
@@ -19,8 +25,14 @@ from tools.media_providers.base import FeatureUnavailableError
 DEFAULT_API_BASE = "https://ark.cn-beijing.volces.com/api/v3"
 IMAGE_MODEL_NAME = "doubao-seedream-4-5-251128"
 VIDEO_MODEL_NAME = "doubao-seedance-1-5-pro-251215"
-TEXT_MODEL_NAME = os.environ.get("VOLCENGINE_TEXT_MODEL", "doubao-seed-2-0-pro-260215")
-VISION_MODEL_NAME = os.environ.get("VOLCENGINE_VISION_MODEL", "doubao-seed-2-0-pro-260215")
+
+
+def get_tool_text_model_name() -> str:
+    return build_tool_text_model_config()["model_name"]
+
+
+def get_tool_vision_model_name() -> str:
+    return build_tool_vision_analyzer_model_config()["model_name"]
 
 
 def _guess_image_mime(path: str) -> str:
@@ -53,17 +65,21 @@ def _process_input_images(input_images: Optional[List[str]]) -> Optional[List[st
 
 
 def _get_ark_api_key() -> Optional[str]:
-    return os.environ.get("MODEL_AGENT_API_KEY")
+    return build_volcengine_ark_api_config()["api_key"] or None
 
 
 def _get_api_base() -> str:
-    return os.environ.get("ARK_API_BASE", DEFAULT_API_BASE).rstrip("/")
+    return build_volcengine_ark_api_config()["api_base"].rstrip("/")
 
 
 def _request_ark(endpoint: str, method: str = "POST", payload: Optional[dict] = None, max_retries: int = 2) -> dict:
     api_key = _get_ark_api_key()
     if not api_key:
-        raise FeatureUnavailableError("MODEL_AGENT_API_KEY 未设置，无法使用 Volcengine ARK 媒体服务。")
+        raise FeatureUnavailableError(
+            "未设置可用的 Volcengine ARK API Key，无法使用媒体或固定视觉分析能力。"
+            "请优先设置 VOLCENGINE_ARK_API_KEY，或设置 MODEL_TOOL_VISION_ANALYZER_API_KEY，"
+            "兼容场景下也可回退使用 MODEL_AGENT_API_KEY。"
+        )
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     url = f"{_get_api_base()}/{endpoint.lstrip('/')}"
@@ -77,6 +93,37 @@ def _request_ark(endpoint: str, method: str = "POST", payload: Optional[dict] = 
                 resp = requests.get(url, headers=headers, timeout=180, proxies={"http": None, "https": None})
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException as e:
+            attempt += 1
+            if hasattr(e, "response") and e.response is not None:
+                if 400 <= e.response.status_code < 500 and e.response.status_code != 429:
+                    raise Exception(f"HTTP Error: {e} - Response: {getattr(e.response, 'text', '')}")
+            if attempt <= max_retries:
+                time.sleep(5)
+            else:
+                raise Exception(f"Request Error after {max_retries} retries: {e}")
+
+
+def _request_openai_compatible(
+    *,
+    api_base: str,
+    api_key: str,
+    endpoint: str,
+    payload: Dict[str, Any],
+    max_retries: int = 2,
+) -> Dict[str, Any]:
+    if not api_key:
+        raise FeatureUnavailableError("未设置对应模型的 API Key，无法发起文本或视觉模型请求。")
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    url = f"{api_base.rstrip('/')}/{endpoint.lstrip('/')}"
+
+    attempt = 0
+    while attempt <= max_retries:
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=180, proxies={"http": None, "https": None})
             resp.raise_for_status()
             return resp.json()
         except requests.exceptions.RequestException as e:
@@ -265,21 +312,33 @@ def local_chat_completions(
     is_vision: bool = False,
 ) -> Dict[str, Any]:
     if is_vision:
+        vision_config = build_tool_vision_analyzer_model_config()
         # Vision requests use /api/v3/responses and have a different payload structure
         payload: Dict[str, Any] = {
-            "model": model or VISION_MODEL_NAME,
+            "model": model or vision_config["model_name"],
             "input": messages,
         }
-        resp = _request_ark("responses", payload=payload, method="POST")
+        resp = _request_openai_compatible(
+            api_base=vision_config["model_api_base"],
+            api_key=vision_config.get("model_api_key", ""),
+            endpoint="responses",
+            payload=payload,
+        )
         return resp
     else:
+        text_config = build_tool_text_model_config()
         payload: Dict[str, Any] = {
-            "model": model or TEXT_MODEL_NAME,
+            "model": model or text_config["model_name"],
             "messages": messages,
             "temperature": temperature,
         }
         if response_format:
             payload["response_format"] = response_format
 
-        resp = _request_ark("chat/completions", payload=payload, method="POST")
+        resp = _request_openai_compatible(
+            api_base=text_config["model_api_base"],
+            api_key=text_config.get("model_api_key", ""),
+            endpoint="chat/completions",
+            payload=payload,
+        )
         return resp
