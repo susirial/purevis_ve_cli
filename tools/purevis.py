@@ -120,17 +120,19 @@ def _character_reference_variant_instruction(reference_variant: str) -> str:
     variant = _normalize_reference_variant(reference_variant)
     if variant == "full_character":
         return (
-            "角色参考图版本要求：完整角色设定图。允许保留角色的标志性武器、手持道具、挂件或其他与身份强绑定的 props，"
-            "但仍然必须保持 clean white background、单角色主体清晰、便于后续一致性控制。除非用户明确要求，不要引入坐骑或额外角色。"
+            "角色参考图版本要求：完整角色设定图。画面必须是单角色、单主体、9:16 竖构图、纯白背景、单张图中只出现一个完整人物，"
+            "只允许一个站姿或一个默认展示姿态，禁止多视图、禁止多人拼贴、禁止角色 lineup、禁止 pose sheet、禁止 expression sheet。"
+            "允许保留角色的标志性武器、手持道具、挂件或其他与身份强绑定的 props，但除非用户明确要求，不要引入坐骑或额外角色。"
         )
     if variant == "mounted_character":
         return (
-            "角色参考图版本要求：带坐骑/伴生体的完整角色设定图。允许保留角色本体与明确指定的坐骑、伴生物或标志性武器，"
-            "但画面仍须以角色为主，保持 clean white background、主体清晰、便于后续一致性控制。不要引入未被明确要求的额外人物。"
+            "角色参考图版本要求：带坐骑/伴生体的完整角色设定图。画面必须是 9:16 竖构图、纯白背景，以单个主角色为中心，"
+            "只允许出现明确指定的坐骑、伴生物或标志性武器，禁止额外角色、禁止 crowd、禁止多视图、禁止拼贴、禁止多个不同站姿版本同时出现在一张图内。"
         )
     return (
-        "角色参考图版本要求：默认纯人物参考图。只保留人物本体、服装、发型、体态与必要的穿戴式配饰；"
-        "不得出现武器、坐骑、宠物、伴生体、额外角色、额外手持道具或环境叙事元素。"
+        "角色参考图版本要求：默认纯人物参考图。画面必须是单人、单主体、全身完整展示、9:16 竖构图、纯白背景、studio lighting、单张图中只出现一个角色，"
+        "只允许一个默认站姿或一个轻微转身展示姿态；禁止多视图、禁止角色设定拼板、禁止 turnaround sheet、禁止 pose sheet、禁止 expression sheet、禁止 collage、禁止同一角色出现多个不同站姿。"
+        "只保留人物本体、服装、发型、体态与必要的穿戴式配饰；不得出现武器、坐骑、宠物、伴生体、额外角色、额外手持道具或环境叙事元素。"
     )
 
 
@@ -291,18 +293,21 @@ def generate_reference_image(
     """
     provider = get_media_provider()
     normalized_variant = _normalize_reference_variant(reference_variant)
+    target_aspect_ratio = aspect_ratio
+    if (entity_type or "").strip().lower() == "character" and not target_aspect_ratio:
+        target_aspect_ratio = "9:16"
     if getattr(provider, "supports_reference", False):
         return provider.generate_reference_image(
             prompt=prompt,
             entity_type=entity_type,
             reference_variant=normalized_variant,
-            aspect_ratio=aspect_ratio,
+            aspect_ratio=target_aspect_ratio,
             input_images=input_images,
         )
     suffix = f"\n\n请生成{entity_type}参考图：主体居中，干净背景，留白充足，便于后续图生图与一致性控制。"
     if (entity_type or "").strip().lower() == "character":
         suffix += "\n" + _character_reference_variant_instruction(normalized_variant)
-    return generate_image(prompt + suffix, aspect_ratio=aspect_ratio, input_images=input_images)
+    return generate_image(prompt + suffix, aspect_ratio=target_aspect_ratio, input_images=input_images)
 
 def generate_multi_view(prompt: str, character_name: str, ref_image: str) -> dict:
     """

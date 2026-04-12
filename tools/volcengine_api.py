@@ -200,34 +200,41 @@ def local_generate_reference_image(
     input_images: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     variant = (reference_variant or "pure_character").strip().lower()
+    target_aspect_ratio = aspect_ratio
+    if (entity_type or "").strip().lower() == "character" and not target_aspect_ratio:
+        target_aspect_ratio = "9:16"
     full_prompt = (
         f"{prompt}\n"
-        "Clean background, subject prominently centered, high resolution, "
-        "professional reference sheet quality, ultra detailed, sharp focus, "
-        "studio lighting, no text, no watermark."
+        "Clean pure white background, studio lighting, one centered subject, high resolution, "
+        "single-character reference portrait, full-body character concept art, one figure only, "
+        "not a multi-view sheet, not a turnaround sheet, not a pose sheet, not an expression sheet, "
+        "not a collage, not a lineup, no repeated character in different poses, no multiple panels, "
+        "no split layout, no contact sheet, no text, no watermark."
     )
     if (entity_type or "").strip().lower() == "character":
         if variant in {"full", "full_character", "full_character_sheet", "complete", "complete_character"}:
             full_prompt += (
-                " Full character sheet mode: single primary character only, clean white or neutral background, "
+                " Full character reference mode: 9:16 vertical composition, single primary character only, clean white background, "
+                "exactly one full-body standing figure in the frame, no duplicate versions of the same character, "
                 "signature weapon or identity-defining handheld props allowed only when explicitly requested in the prompt, "
                 "no mount, no companion, no extra character."
             )
         elif variant in {"mounted", "with_mount", "mount", "mounted_character"}:
             full_prompt += (
-                " Mounted character sheet mode: keep one primary character as the visual focus, "
+                " Mounted character reference mode: 9:16 vertical composition, keep one primary character as the visual focus, "
+                "only one hero character pose in the frame, no duplicate versions of the same character, "
                 "allow only the explicitly requested mount or companion and explicitly requested signature weapon, "
                 "no extra characters, no crowd, no unrelated props."
             )
         else:
             full_prompt += (
-                " Pure character reference mode: single character only, no mount, no companion, no pet, "
-                "no extra subject, no handheld prop, no weapon unless explicitly requested, "
+                " Pure character reference mode: 9:16 vertical composition, single character only, exactly one full-body standing figure, "
+                "no mount, no companion, no pet, no extra subject, no handheld prop, no weapon unless explicitly requested, "
                 "keep only the character body, clothing, hairstyle, silhouette and essential wearable accessories."
             )
     return local_generate_image(
         prompt=full_prompt,
-        aspect_ratio=aspect_ratio,
+        aspect_ratio=target_aspect_ratio,
         input_images=input_images,
     )
 

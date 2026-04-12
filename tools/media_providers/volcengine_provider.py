@@ -139,7 +139,7 @@ You are a senior character designer for film, animation, and game production. De
 Return a single valid JSON object with these keys:
 
 "prompt": (string) A detailed English prompt for a text-to-image model. MUST include:
-  - "clean white background, character design sheet, full body concept art"
+  - "clean white background, single character, full body concept art, 9:16"
   - Complete physical description: face shape, eyes, nose, mouth, skin tone, body type, height impression, build
   - Hair: color, style, length, texture, any styling details
   - Clothing layers: headwear, top, outer layer, bottom, footwear — each with material, color, pattern, fit
@@ -158,9 +158,9 @@ Return a single valid JSON object with these keys:
   "personality_through_design": (string — how visual elements convey personality)
 }
 
-"negative": (array) Elements to avoid: "complex background", "multiple characters", "text", "watermark", "blurry", "deformed hands", "extra fingers", "anatomical errors"
+"negative": (array) Elements to avoid: "complex background", "multiple characters", "multi-view sheet", "turnaround sheet", "pose sheet", "expression sheet", "collage", "text", "watermark", "blurry", "deformed hands", "extra fingers", "anatomical errors"
 
-CRITICAL: The prompt MUST specify "clean white background" and "character design sheet" to ensure the output is a proper reference sheet on white."""
+CRITICAL: The prompt MUST explicitly describe a single full-body character on a pure white background in 9:16 vertical composition. Never output multi-view sheets, turnaround sheets, expression sheets, pose sheets, lineups, or repeated copies of the same character in one image."""
 
 _SYS_DESIGN_SCENE = """\
 You are a senior production designer and concept artist for film and animation. Design an environment/scene suitable for AI image generation.
