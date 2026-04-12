@@ -8,6 +8,18 @@
 
 系统通过一个总控智能体 `orchestrator` 协调多个专业子智能体，实现从 **题材策划、角色/场景设定、剧本创作、图片分镜设计** 到 **图像与视频生成、视觉审核、资产落盘** 的完整闭环。同时，系统提供本地状态管理、风格配置治理、流式终端交互以及会话历史压缩能力，适合持续推进多轮创作项目。
 
+## 模型生态与基础设施
+
+<p align="center">
+  <img src="demo/volcengine-color.png" height="56" alt="Volcengine" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://z-cdn.chatglm.cn/z-ai/static/logo.svg" height="42" alt="Z.ai" />
+</p>
+
+PureVis 的设计目标不是绑定单一模型，而是把 **文本策划、视觉生成、视频生成、分析质检** 解耦为可替换的能力层。当前项目默认以 **火山引擎方舟** 作为生产级多模态底座，承接 Doubao 系列文本模型、Seedream 生图与 Seedance 生视频链路；同时也预留并支持接入 **Z.ai** 作为文本推理与通用创作模型来源，用于更灵活的 Agent 编排与工具模型切换。
+
+这意味着你可以把它理解为一个面向创作工作流的“模型编排层”：上层统一使用自然语言驱动项目，下层按任务类型自由组合不同供应方能力，在保证创作体验统一的前提下，获得更强的可扩展性与工程稳定性。
+
 ## 视觉设计展示：角色生成 · 多视图 · 封面设定
 
 以项目《武装歌姬天穹诗》为例，下面展示 PureVis 在“从 0 到可用资产”的关键产出：角色参考图、多视图一致性辅助素材，以及多套封面 Key Art 方案。它们不是单次出图的孤品，而是可被下游 **分镜、关键帧、视频合成** 直接复用的“可生产资产”。
@@ -105,6 +117,10 @@ pip install -r requirements.txt
 
 在使用本系统之前，您需要在 **火山引擎方舟平台 (`Volcengine Ark`)** 注册并开通以下能力，并获取对应 `API Key`：
 
+<p align="left">
+  <img src="demo/volcengine-color.png" height="38" alt="Volcengine Ark" />
+</p>
+
 1. **文本生成模型**：用于剧本、分镜、调度与总结等文本任务。
    - 推荐：`doubao-seed-2-0-pro-260215`
 2. **生图模型**：在使用火山底座作为媒体提供方时，用于 `Text-to-Image` 与 `Image-to-Image`。
@@ -113,6 +129,12 @@ pip install -r requirements.txt
    - 推荐：`doubao-seedance-1-5-pro-251215`
 
 > 如果没有配置 `PUREVIS_API_KEY`，系统会优先尝试回退到火山引擎方舟能力完成图片和视频生成。
+>
+> 如果您希望在文本侧引入不同风格或不同成本结构的模型，也可以将 Agent 或普通文本工具切换到 **Z.ai**：
+>
+> <img src="https://z-cdn.chatglm.cn/z-ai/static/logo.svg" height="22" alt="Z.ai" />
+>
+> 例如在 `.env` 中配置 `MODEL_TOOL_TEXT_NAME`、`MODEL_TOOL_TEXT_API_BASE`、`MODEL_TOOL_TEXT_API_KEY`，即可让文本策划、总结或部分工具链改由其他兼容模型提供方承接，而不影响整体工作流设计。
 
 # 快速开始
 
