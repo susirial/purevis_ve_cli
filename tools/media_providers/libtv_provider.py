@@ -21,6 +21,7 @@ IM_BASE = "https://im.liblib.tv"
 PROJECT_CANVAS_BASE = "https://www.liblib.tv/canvas?projectId="
 URL_PATTERN = re.compile(r'https://libtv-res\.liblib\.art/[^\s"\'<>]+\.(?:png|jpg|jpeg|webp|mp4|mov|webm)')
 UPLOAD_ALLOWED_PREFIXES = ("image/", "video/")
+_ACTIVE_SESSION_CONTEXT: Dict[str, str] = {}
 
 
 def _build_project_url(project_id: str) -> str:
@@ -60,6 +61,14 @@ class LibTVMediaProvider(BaseMediaProvider):
     VIDEO_ASPECT_RATIOS = {"16:9", "9:16", "1:1"}
     TASK_TOKEN_PREFIX = "libtv:"
 
+    def _debug_log(self, event: str, **fields: Any) -> None:
+        parts = [f"event={event}"]
+        for key, value in fields.items():
+            if value is None or value == "":
+                continue
+            parts.append(f"{key}={value}")
+        print("[LibTV] " + " | ".join(parts))
+
     def capabilities(self) -> Dict[str, bool]:
         data = super().capabilities()
         data.update(
@@ -87,7 +96,8 @@ class LibTVMediaProvider(BaseMediaProvider):
         normalized_model = self._normalize_image_model(model)
         normalized_ratio = self._normalize_image_ratio(aspect_ratio)
         reference_urls = self._upload_references(input_images or [])
-        project_uuid = self._change_project_for_isolation()
+        session_context = self._ensure_active_session()
+        start_seq = self._get_latest_seq(session_context["session_id"])
         message = self._build_message(
             capability="生图",
             prompt=prompt,
@@ -97,12 +107,23 @@ class LibTVMediaProvider(BaseMediaProvider):
             reference_urls=reference_urls,
             extra_requirements=[],
         )
-        session_data = self._create_session(message)
+        session_data = self._create_session(message, session_id=session_context["session_id"])
+        self._update_active_session_context(session_data)
+        self._debug_log(
+            "submit_image",
+            session_id=session_context["session_id"],
+            project_id=session_context["project_id"],
+            start_seq=start_seq,
+            model=normalized_model,
+            aspect_ratio=normalized_ratio,
+            ref_count=len(reference_urls),
+        )
         return self._build_submitted_response(
             capability="generate_image",
             model=normalized_model,
             session_data=session_data,
-            fallback_project_uuid=project_uuid,
+            fallback_project_uuid=session_context["project_id"],
+            start_seq=start_seq,
         )
 
     def generate_video(
@@ -119,7 +140,8 @@ class LibTVMediaProvider(BaseMediaProvider):
         normalized_duration = self._normalize_video_duration(duration)
         normalized_ratio = self._normalize_video_ratio(aspect_ratio)
         reference_urls = self._upload_references(input_images or [])
-        project_uuid = self._change_project_for_isolation()
+        session_context = self._ensure_active_session()
+        start_seq = self._get_latest_seq(session_context["session_id"])
         extra_requirements = [
             "输出视频，不要输出图片。",
             "优先保证镜头运动与主体一致性。",
@@ -134,12 +156,24 @@ class LibTVMediaProvider(BaseMediaProvider):
             reference_urls=reference_urls,
             extra_requirements=extra_requirements,
         )
-        session_data = self._create_session(message)
+        session_data = self._create_session(message, session_id=session_context["session_id"])
+        self._update_active_session_context(session_data)
+        self._debug_log(
+            "submit_video",
+            session_id=session_context["session_id"],
+            project_id=session_context["project_id"],
+            start_seq=start_seq,
+            model=normalized_model,
+            aspect_ratio=normalized_ratio,
+            duration=normalized_duration,
+            ref_count=len(reference_urls),
+        )
         return self._build_submitted_response(
             capability="generate_video",
             model=normalized_model,
             session_data=session_data,
-            fallback_project_uuid=project_uuid,
+            fallback_project_uuid=session_context["project_id"],
+            start_seq=start_seq,
         )
 
     def query_task_status(self, task_id: str) -> Dict[str, Any]:
@@ -148,13 +182,56 @@ class LibTVMediaProvider(BaseMediaProvider):
         project_id = task.get("project_id", "")
         capability = task.get("capability", "")
         model = task.get("model", "")
+        after_seq = int(task.get("after_seq", 0) or 0)
 
-        data = self._query_session(session_id)
+        try:
+            data = self._query_session(session_id, after_seq=after_seq)
+        except FeatureUnavailableError as exc:
+            message = str(exc)
+            if "会话不存在或无效" in message:
+                self._debug_log(
+                    "query_session_missing",
+                    session_id=session_id,
+                    project_id=project_id,
+                    after_seq=after_seq,
+                    capability=capability,
+                    model=model,
+                )
+                return {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "message": "LibTV 会话不存在或已失效，无法继续查询该任务。",
+                    "result": {
+                        "urls": [],
+                        "url": None,
+                        "outputs": [],
+                        "session_id": session_id,
+                        "project_id": project_id,
+                        "project_url": _build_project_url(project_id),
+                        "capability": capability,
+                        "model": model,
+                    },
+                    "raw": {"error": message},
+                }
+            raise
         messages = data.get("messages", []) or []
         urls = self._extract_urls_from_messages(messages)
         media_type = "video" if capability == "generate_video" else "image"
         outputs = [self._build_output_item(url, media_type) for url in urls]
         status = self._normalize_status(messages, outputs)
+        max_seq = self._extract_max_seq(messages)
+        self._debug_log(
+            "query_status",
+            session_id=session_id,
+            project_id=project_id,
+            capability=capability,
+            model=model,
+            after_seq=after_seq,
+            max_seq=max_seq,
+            message_count=len(messages),
+            url_count=len(urls),
+            status=status,
+        )
 
         result: Dict[str, Any] = {
             "task_id": task_id,
@@ -168,6 +245,8 @@ class LibTVMediaProvider(BaseMediaProvider):
                 "project_url": _build_project_url(project_id),
                 "capability": capability,
                 "model": model,
+                "after_seq": after_seq,
+                "max_seq": max_seq,
             },
             "raw": {"messages": messages},
         }
@@ -201,9 +280,19 @@ class LibTVMediaProvider(BaseMediaProvider):
         display_name = (character_name or "该角色").strip()
         full_prompt = (
             prompt.strip()
-            + "\n请生成 %s 的人物多视图设定图。" % display_name
-            + "\n要求：单张画布内展示正面、侧面、背面三视图，角色身份、服装、发型、配色完全一致。"
-            + "\n背景尽量纯净，不要额外角色、不要文字、不要水印。"
+            + "\n请生成 %s 的角色多视图拼图（单张图，16:9 横向）。" % display_name
+            + "\n版式要求：左侧 1/3 为一张角色大脸特写；右侧 2/3 依次为角色正面全身图、3/4 左侧面全身图、背面全身图。"
+            + "\n左侧头像要求：正面视角，脸部占比大，必须包含完整头部轮廓，头发不得裁切出画框，清晰展示五官、发型与妆容细节。"
+            + "\n右侧三视图要求：三个视角都必须从头到脚完整展示，包含完整发型、双手、双脚和鞋子，不得裁切肢体。"
+            + "\n一致性要求：四个视图必须是同一角色、同一身份、同一服饰、同一发型、同一配色、同一画风。"
+            + "\n严格参考输入参考图，不得改变角色身份，不得新增武器、坐骑、宠物、手持道具、额外角色或环境叙事元素。"
+            + "\n背景必须为纯白或干净中性背景。无任何分割线、无文字、无标签、无色卡、无水印、无 UI 元素。"
+        )
+        self._debug_log(
+            "normalize_multi_view_prompt",
+            character_name=display_name,
+            layout="headshot_plus_front_three_quarter_back",
+            has_ref_image=bool(ref_image),
         )
         return self.generate_image(
             prompt=full_prompt,
@@ -258,6 +347,7 @@ class LibTVMediaProvider(BaseMediaProvider):
         model: str,
         session_data: Dict[str, Any],
         fallback_project_uuid: str,
+        start_seq: int,
     ) -> Dict[str, Any]:
         session_id = session_data.get("sessionId", "")
         if not session_id:
@@ -268,8 +358,17 @@ class LibTVMediaProvider(BaseMediaProvider):
             model=model,
             session_id=session_id,
             project_id=project_uuid,
+            after_seq=start_seq,
         )
-        return {"task_id": token}
+        self._debug_log(
+            "task_created",
+            capability=capability,
+            model=model,
+            session_id=session_id,
+            project_id=project_uuid,
+            after_seq=start_seq,
+        )
+        return {"task_id": token, "session_id": session_id, "project_id": project_uuid, "after_seq": start_seq}
 
     def _encode_task_token(
         self,
@@ -277,14 +376,16 @@ class LibTVMediaProvider(BaseMediaProvider):
         model: str,
         session_id: str,
         project_id: str,
+        after_seq: int,
     ) -> str:
         payload = {
-            "v": 1,
+            "v": 2,
             "provider": "libtv",
             "capability": capability,
             "model": model,
             "session_id": session_id,
             "project_id": project_id,
+            "after_seq": int(after_seq or 0),
         }
         return self.TASK_TOKEN_PREFIX + _urlsafe_b64encode(payload)
 
@@ -299,6 +400,10 @@ class LibTVMediaProvider(BaseMediaProvider):
             raise FeatureUnavailableError("task_id 不属于 libtv provider。")
         if not payload.get("session_id"):
             raise FeatureUnavailableError("task_id 缺少 session_id。")
+        try:
+            payload["after_seq"] = int(payload.get("after_seq", 0) or 0)
+        except (TypeError, ValueError):
+            payload["after_seq"] = 0
         return payload
 
     def _build_message(
@@ -377,13 +482,71 @@ class LibTVMediaProvider(BaseMediaProvider):
             raise FeatureUnavailableError("LibTV 切换项目失败，未返回 projectUuid。")
         return project_uuid
 
-    def _create_session(self, message: str) -> Dict[str, Any]:
-        response = self._request_json("POST", "/openapi/session", body={"message": message})
+    def _create_session(self, message: str = "", session_id: str = "") -> Dict[str, Any]:
+        body: Dict[str, Any] = {}
+        if session_id:
+            body["sessionId"] = session_id
+        if message:
+            body["message"] = message
+        response = self._request_json("POST", "/openapi/session", body=body)
         return response.get("data", {}) or {}
 
-    def _query_session(self, session_id: str) -> Dict[str, Any]:
-        response = self._request_json("GET", "/openapi/session/%s" % session_id)
+    def _query_session(self, session_id: str, after_seq: int = 0) -> Dict[str, Any]:
+        path = "/openapi/session/%s" % session_id
+        if after_seq > 0:
+            path += "?afterSeq=%s" % after_seq
+        response = self._request_json("GET", path)
         return response.get("data", {}) or {}
+
+    def _ensure_active_session(self) -> Dict[str, str]:
+        session_id = _ACTIVE_SESSION_CONTEXT.get("session_id", "")
+        project_id = _ACTIVE_SESSION_CONTEXT.get("project_id", "")
+        if session_id:
+            self._debug_log("reuse_session", session_id=session_id, project_id=project_id)
+            return {"session_id": session_id, "project_id": project_id}
+
+        project_id = self._change_project_for_isolation()
+        session_data = self._create_session()
+        session_id = session_data.get("sessionId", "")
+        project_id = session_data.get("projectUuid", "") or project_id
+        if not session_id:
+            raise FeatureUnavailableError("LibTV 初始化会话失败，未返回 sessionId。")
+        _ACTIVE_SESSION_CONTEXT["session_id"] = session_id
+        _ACTIVE_SESSION_CONTEXT["project_id"] = project_id
+        self._debug_log("start_session", session_id=session_id, project_id=project_id)
+        return {"session_id": session_id, "project_id": project_id}
+
+    def _update_active_session_context(self, session_data: Dict[str, Any]) -> None:
+        session_id = (session_data.get("sessionId") or "").strip()
+        project_id = (session_data.get("projectUuid") or "").strip()
+        if session_id:
+            _ACTIVE_SESSION_CONTEXT["session_id"] = session_id
+        if project_id:
+            _ACTIVE_SESSION_CONTEXT["project_id"] = project_id
+
+    def _get_latest_seq(self, session_id: str) -> int:
+        try:
+            data = self._query_session(session_id)
+        except FeatureUnavailableError as exc:
+            message = str(exc)
+            if "会话不存在或无效" in message:
+                self._debug_log("session_invalid_reset", session_id=session_id)
+                _ACTIVE_SESSION_CONTEXT.clear()
+                return 0
+            raise
+        messages = data.get("messages", []) or []
+        max_seq = self._extract_max_seq(messages)
+        self._debug_log("session_seq", session_id=session_id, max_seq=max_seq, message_count=len(messages))
+        return max_seq
+
+    def _extract_max_seq(self, messages: List[Dict[str, Any]]) -> int:
+        max_seq = 0
+        for msg in messages:
+            try:
+                max_seq = max(max_seq, int(msg.get("seq", 0) or 0))
+            except (TypeError, ValueError):
+                continue
+        return max_seq
 
     def _upload_references(self, items: List[str]) -> List[str]:
         urls = []

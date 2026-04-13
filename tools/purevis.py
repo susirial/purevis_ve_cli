@@ -548,13 +548,27 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
         poll_interval: Seconds to sleep between polls (default 10s).
     """
     start_time = time.time()
+    poll_count = 0
     while True:
         # 1. 查询状态
         result = query_task_status(task_id)
         status = result.get("status", "")
+        poll_count += 1
+        result_payload = result.get("result", {}) if isinstance(result, dict) else {}
+        url_count = len((result_payload.get("urls") or [])) if isinstance(result_payload, dict) else 0
+        print(
+            "[WaitForTask] poll=%s | status=%s | url_count=%s | session_id=%s | project_id=%s"
+            % (
+                poll_count,
+                status or "unknown",
+                url_count,
+                result_payload.get("session_id", "") if isinstance(result_payload, dict) else "",
+                result_payload.get("project_id", "") if isinstance(result_payload, dict) else "",
+            )
+        )
         
         # 2. 判断是否结束
-        if status in ["completed", "failed"]:
+        if status in ["completed", "succeeded", "failed", "timeout", "expired"]:
             return result
             
         # 3. 检查是否超时
