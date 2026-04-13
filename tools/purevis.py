@@ -370,6 +370,54 @@ def generate_pose_sheet(prompt: str, character_name: str, ref_image: str) -> dic
     )
     return generate_image(prompt + suffix, input_images=[ref_image])
 
+
+def generate_prop_three_view_sheet(
+    prompt: str,
+    prop_name: str = "",
+    input_images: list = None,
+    aspect_ratio: str = "16:9",
+) -> dict:
+    """
+    Submit a single-canvas industrial three-view prop sheet generation task.
+
+    Args:
+        prompt: 提示词描述，建议已包含风格与材质描述。
+        prop_name: 道具名称，用于补充版式说明。
+        input_images: 如果需要参考现有道具图片，可传入本地路径列表。
+        aspect_ratio: 画幅比，默认 16:9 横向以容纳三视图排版。
+    """
+    provider = get_media_provider()
+    return provider.generate_prop_three_view_sheet(
+        prompt=prompt,
+        prop_name=prop_name,
+        input_images=input_images,
+        aspect_ratio=aspect_ratio,
+    )
+
+
+def generate_storyboard_grid_sheet(
+    prompt: str,
+    panel_count: int = 16,
+    aspect_ratio: str = "1:1",
+    input_images: list = None,
+) -> dict:
+    """
+    Submit a single-canvas storyboard contact-sheet generation task.
+
+    Args:
+        prompt: 提示词描述，建议已融合每格的镜头说明与连续性约束。
+        panel_count: 宫格数，当前推荐 16 或 25，也兼容少量常见多格布局。
+        aspect_ratio: 画幅比，默认 1:1 以适配 4x4 / 5x5 网格。
+        input_images: 如果需要参考已有角色或场景图片，可传入本地路径列表。
+    """
+    provider = get_media_provider()
+    return provider.generate_storyboard_grid_sheet(
+        prompt=prompt,
+        panel_count=panel_count,
+        aspect_ratio=aspect_ratio,
+        input_images=input_images,
+    )
+
 def generate_video(prompt: str, input_images: list = None, duration: int = 12, aspect_ratio: str = "16:9", generate_audio: bool = True) -> dict:
     """
     Submit a video generation task.
@@ -448,6 +496,8 @@ purevis_tools = [
     generate_multi_view,
     generate_expression_sheet,
     generate_pose_sheet,
+    generate_prop_three_view_sheet,
+    generate_storyboard_grid_sheet,
     generate_video,
     query_task_status,
     wait_for_task,

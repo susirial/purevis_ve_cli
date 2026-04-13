@@ -57,6 +57,24 @@ class BaseMediaProvider(ABC):
     def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持姿势表生成。")
 
+    def generate_prop_three_view_sheet(
+        self,
+        prompt: str,
+        prop_name: str = "",
+        input_images: Optional[List[str]] = None,
+        aspect_ratio: str = "16:9",
+    ) -> Dict[str, Any]:
+        raise FeatureUnavailableError("当前媒体提供方不支持道具三视图设定板生成。")
+
+    def generate_storyboard_grid_sheet(
+        self,
+        prompt: str,
+        panel_count: int = 16,
+        aspect_ratio: str = "1:1",
+        input_images: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        raise FeatureUnavailableError("当前媒体提供方不支持多宫格分镜拼板生成。")
+
     def design_character(
         self,
         character_name: str,

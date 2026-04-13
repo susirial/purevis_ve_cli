@@ -13,7 +13,9 @@ from tools.volcengine_api import (
     get_tool_vision_model_name,
     local_chat_completions,
     local_generate_image,
+    local_generate_prop_three_view_sheet,
     local_generate_reference_image,
+    local_generate_storyboard_grid_sheet,
     local_generate_video,
     local_query_task_status,
 )
@@ -615,6 +617,34 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             full_prompt,
             aspect_ratio="16:9",
             input_images=[ref_image] if ref_image else None,
+        )
+
+    def generate_prop_three_view_sheet(
+        self,
+        prompt: str,
+        prop_name: str = "",
+        input_images: Optional[List[str]] = None,
+        aspect_ratio: str = "16:9",
+    ) -> Dict[str, Any]:
+        return local_generate_prop_three_view_sheet(
+            prompt=prompt,
+            prop_name=prop_name,
+            input_images=input_images,
+            aspect_ratio=aspect_ratio,
+        )
+
+    def generate_storyboard_grid_sheet(
+        self,
+        prompt: str,
+        panel_count: int = 16,
+        aspect_ratio: str = "1:1",
+        input_images: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        return local_generate_storyboard_grid_sheet(
+            prompt=prompt,
+            panel_count=panel_count,
+            aspect_ratio=aspect_ratio,
+            input_images=input_images,
         )
 
     # ------------------------------------------------------------------

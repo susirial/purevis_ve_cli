@@ -239,6 +239,64 @@ def local_generate_reference_image(
     )
 
 
+def _normalize_storyboard_panel_count(panel_count: int) -> int:
+    try:
+        normalized = int(panel_count)
+    except (TypeError, ValueError):
+        normalized = 16
+    return normalized if normalized in {4, 6, 8, 9, 12, 16, 25} else 16
+
+
+def local_generate_prop_three_view_sheet(
+    prompt: str,
+    prop_name: str = "",
+    input_images: Optional[List[str]] = None,
+    aspect_ratio: str = "16:9",
+) -> Dict[str, Any]:
+    display_name = prop_name.strip() if prop_name else "该道具"
+    full_prompt = (
+        f"{prompt}\n"
+        f"请生成 {display_name} 的工业设计三视图道具设定板。"
+        "必须是单张图、单画布、横向排版，不得拆分成多张图片。"
+        "严格采用正面视图、侧面视图、背面视图三等分均匀布局。"
+        "纯白背景，无场景，无人物，无杂物，无阴影噪点，无文字，无标签，无水印，无 UI 元素。"
+        "三视图中的道具必须保持完全一致的结构、材质、配色与比例。"
+        "每个视图都必须完整展示道具主体，complete body, fully visible, no cropping, no missing parts."
+        "强调 orthographic industrial design sheet、product concept board、clean studio lighting、even lighting、high readability、8K、ultra detailed."
+    )
+    return local_generate_image(
+        prompt=full_prompt,
+        aspect_ratio=aspect_ratio or "16:9",
+        input_images=input_images,
+    )
+
+
+def local_generate_storyboard_grid_sheet(
+    prompt: str,
+    panel_count: int = 16,
+    aspect_ratio: str = "1:1",
+    input_images: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    normalized_count = _normalize_storyboard_panel_count(panel_count)
+    grid_side = int(normalized_count ** 0.5)
+    grid_label = f"{grid_side}x{grid_side}" if grid_side * grid_side == normalized_count else f"{normalized_count} panels"
+    full_prompt = (
+        f"{prompt}\n"
+        f"请生成单张故事板拼图，严格为 {normalized_count} 宫格（{grid_label}）布局。"
+        "所有内容必须整合在同一张画布内，禁止分图生成。"
+        "每个宫格都必须是一张完整画面，所有宫格尺寸严格一致，边距与留白均匀。"
+        "图片中不要出现文字、标签、分镜编号、水印、UI 元素。"
+        "整张图需要读起来像完整故事板，镜头语言应包含远景、全景、中景、近景、特写等合理变化。"
+        "所有格子中的角色身份、服装、发型、道具与环境连续性必须稳定。"
+        "强调 storyboard contact sheet、single canvas、equal-sized panels、clean layout、strong continuity、high readability、high detail."
+    )
+    return local_generate_image(
+        prompt=full_prompt,
+        aspect_ratio=aspect_ratio or "1:1",
+        input_images=input_images,
+    )
+
+
 def local_generate_video(
     prompt: str,
     input_images: Optional[List[str]] = None,
