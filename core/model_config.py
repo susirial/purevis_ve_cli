@@ -20,6 +20,7 @@ DEFAULT_TOOL_TEMPERATURES: Dict[str, float] = {
     "BREAKDOWN_STORYBOARD": 0.40,
     "GENERATE_KEYFRAME_PROMPTS": 0.45,
     "GENERATE_VIDEO_PROMPTS": 0.45,
+    "LIBTV_PROMPT_COMPILER": 0.20,
     "VISION_ANALYZER": 0.15,
 }
                                   

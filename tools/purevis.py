@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import base64
 import requests
 from typing import Optional, List, Dict, Any
@@ -557,6 +558,82 @@ def query_task_status(task_id: str) -> dict:
     provider = _resolve_provider_for_task_execution(task_id)
     return provider.query_task_status(task_id)
 
+
+def _extract_query_error(raw_payload: Any) -> str:
+    if isinstance(raw_payload, dict):
+        direct_error = raw_payload.get("error")
+        if direct_error:
+            return str(direct_error)
+        messages = raw_payload.get("messages") or []
+        if isinstance(messages, list):
+            for item in reversed(messages[-5:]):
+                if not isinstance(item, dict):
+                    continue
+                content = item.get("content")
+                if not isinstance(content, str) or not content.strip():
+                    continue
+                try:
+                    parsed = json.loads(content)
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(parsed, dict):
+                    if parsed.get("error"):
+                        return str(parsed.get("error"))
+                    if parsed.get("isError"):
+                        text_parts = []
+                        for block in parsed.get("content") or []:
+                            if isinstance(block, dict) and block.get("text"):
+                                text_parts.append(str(block.get("text")))
+                        if text_parts:
+                            return " | ".join(text_parts)
+                        return json.dumps(parsed, ensure_ascii=False)
+    return ""
+
+
+def _build_query_debug_payload(result: Any) -> Dict[str, Any]:
+    if not isinstance(result, dict):
+        return {"raw_result": result}
+    result_payload = result.get("result", {}) if isinstance(result.get("result"), dict) else {}
+    raw_payload = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
+    messages = raw_payload.get("messages") or []
+    tail_messages = messages[-3:] if isinstance(messages, list) else []
+    return {
+        "task_id": result.get("task_id"),
+        "status": result.get("status"),
+        "message": result.get("message"),
+        "result": {
+            "session_id": result_payload.get("session_id"),
+            "project_id": result_payload.get("project_id"),
+            "project_url": result_payload.get("project_url"),
+            "capability": result_payload.get("capability"),
+            "model": result_payload.get("model"),
+            "after_seq": result_payload.get("after_seq"),
+            "max_seq": result_payload.get("max_seq"),
+            "url_count": len(result_payload.get("urls") or []),
+            "url": result_payload.get("url"),
+        },
+        "raw_error": _extract_query_error(raw_payload),
+        "raw_messages_tail": tail_messages,
+    }
+
+
+def _should_retry_libtv_transient_failure(task_id: str, result: Any) -> bool:
+    if not isinstance(task_id, str) or not task_id.startswith("libtv:"):
+        return False
+    if not isinstance(result, dict):
+        return False
+    if result.get("status") != "failed":
+        return False
+    raw_payload = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
+    error_text = " ".join(
+        [
+            str(result.get("message") or ""),
+            str(raw_payload.get("error") or ""),
+            _extract_query_error(raw_payload),
+        ]
+    ).lower()
+    return "params is required" in error_text
+
 def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> dict:
     """
     [业界最佳实践] 阻塞等待一个异步任务完成。
@@ -570,6 +647,7 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
     """
     start_time = time.time()
     poll_count = 0
+    transient_retry_used = False
     while True:
         # 1. 查询状态
         result = query_task_status(task_id)
@@ -587,6 +665,14 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
                 result_payload.get("project_id", "") if isinstance(result_payload, dict) else "",
             )
         )
+        if status in ["failed", "timeout", "expired"]:
+            debug_payload = _build_query_debug_payload(result)
+            print("[WaitForTask] query_result_debug=\n%s" % json.dumps(debug_payload, ensure_ascii=False, indent=2))
+            if not transient_retry_used and _should_retry_libtv_transient_failure(task_id, result):
+                transient_retry_used = True
+                print("[WaitForTask] detected transient LibTV error 'params is required'; sleep 5s then re-check task status once.")
+                time.sleep(5)
+                continue
         
         # 2. 判断是否结束
         if status in ["completed", "succeeded", "failed", "timeout", "expired"]:

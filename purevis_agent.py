@@ -192,7 +192,10 @@ async def main():
                         status.stop()
                         for resp in responses:
                             raw_output = str(resp.response)
-                            display_output = raw_output[:250] + "\n... (已截断)" if len(raw_output) > 250 else raw_output
+                            is_task_query_tool = resp.name in {"wait_for_task", "query_task_status"}
+                            is_failed_task_output = "'status': 'failed'" in raw_output or '"status": "failed"' in raw_output
+                            max_len = 2000 if is_task_query_tool and is_failed_task_output else 250
+                            display_output = raw_output[:max_len] + "\n... (已截断)" if len(raw_output) > max_len else raw_output
                             
                             if "transfer" in resp.name.lower():
                                 agent_name = resp.name.replace("transfer_to_", "")

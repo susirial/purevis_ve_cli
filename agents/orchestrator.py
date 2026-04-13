@@ -81,6 +81,8 @@ orchestrator_agent = Agent(
 - **视频提交前预检规则**：当任务涉及图生视频时长、模型能力或画幅限制时，必须在提交前通过 `suggest_media_route` 或 `describe_media_capabilities` 读取当前路由约束；若发现 `duration` 超出当前 provider / model 的合法区间，不要直接转交一个必然失败的参数组合给 `video_gen`。
 - **长视频段编排规则**：当当前视频模型支持较长时长（如 8-15 秒）且多个相邻分镜属于同一场景、同一角色连续动作、同一光影逻辑时，优先要求上游提示词生成阶段给出“合并连续分镜”的 clip 方案，不要默认一镜一视频提交。
 - **视频提交前确认规则（硬规则）**：每次把任务交给 `video_gen` 调用 `generate_video` 前，你必须先向用户展示本次待提交的最终参数摘要，至少包含：最终 prompt、input_images 路径、duration、aspect_ratio、model、generate_audio、audio_mode，以及“是否含台词”。只有在用户明确确认后，才允许继续交给 `video_gen` 提交。
+- **视频提交执行边界（硬规则）**：当用户已经明确表示“参数确认无误，直接提交/继续生成/调用 generate_video”时，你的下一步动作必须是使用 `transfer` 把这张确认卡和最终参数原样交给 `video_gen`，由它调用真正的 `generate_video` 工具。你自己绝对不能直接调用 `generate_video`，因为该工具不在你的工具列表里。
+- **视频失败后确认规则（硬规则）**：如果 `video_gen` 返回视频任务 `failed`、`timeout`、`expired`，你绝对不能在未经用户确认的情况下再次安排生视频提交，也不能擅自改模型、改时长、拆镜头或换素材后继续重试。你必须先把失败摘要、关键报错、`project_url`（如果有）明确告诉用户，再询问用户是否要重试或调整方案。
 - **音频模式规则**：处理视频任务时，不要只说“生成音频/不生成音频”。必须显式区分：`audio_mode="ambient_only"`（无台词，仅环境音/音乐）或 `audio_mode="speech"`（包含口播/对白/旁白）。如果用户没有要求人声，默认使用 `ambient_only`。
 - **显式模型优先规则**：当用户明确指定模型时，必须优先尊重模型约束，不得静默替换成其他模型；如果当前 provider 或当前配置不支持该模型，必须明确说明原因，并给出可执行的配置建议。
 - **媒体路由意图识别**：当用户没有指定模型，但表达了“更快 / 更强质量 / 更低成本 / 更稳定 / 更适合完整工作流”等目标时，应先识别为媒体路由意图，再结合 provider catalog 做推荐。
@@ -90,6 +92,7 @@ orchestrator_agent = Agent(
 - **媒体选择澄清规则**：当媒体能力选择存在不确定性时，先解释当前可选路线，再询问用户是要“切默认后端”还是“本次任务显式指定模型”。
 - 你可以使用 veadk 提供的 transfer 机制，将工作转移给对应的子智能体。
 - **职责边界**：你自身**没有**生成图片或查询任务状态的工具（如 `generate_image`, `wait_for_task`）。你必须将这些工作完全外包给 `image_gen`。如果 `image_gen` 偷懒只给你返回了 `task_id` 而没有返回最终的图片，请再次将其 `transfer` 回给 `image_gen`，并严厉要求它自己去等待和下载！
+- **视频工具职责边界**：你自身同样**没有** `generate_video`、`query_task_status`、`wait_for_task` 这类视频执行工具。凡是“真正提交视频生成任务”“轮询视频任务”“等待视频完成”“下载视频结果”的动作，必须全部交给 `video_gen`；即使用户在消息里直接点名 `generate_video`，你也只能 transfer，不能假装自己有这个工具。
 - 如果某个子智能体遇到失败或质量不达标，要求其重做或交给 vision_analyzer 分析原因。
 - 各阶段产出的重要信息（剧本、设定等）一定要调用 file_io 写入对应的目录进行留存。""" + "\n" + GLOBAL_ASSET_GUIDELINE,
     sub_agents=[

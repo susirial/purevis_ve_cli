@@ -90,6 +90,7 @@ LIBTV_ACCESS_KEY=
 
 # 日志等级
 LOGGING_LEVEL=ERROR
+LITELLM_LOG=CRITICAL
 
 # 【可选】显式指定媒体提供方
 # 可选值: auto | purevis | libtv | volcengine_ark | vidu | kling

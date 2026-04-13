@@ -36,7 +36,7 @@ _PROVIDER_METADATA: Dict[str, Dict[str, Any]] = {
             "generate_reference_image": "lib_nano_2",
             "generate_multi_view": "lib_nano_2",
             "generate_prop_three_view_sheet": "lib_nano_2",
-            "generate_storyboard_grid_sheet": "lib_nano_pro",
+            "generate_storyboard_grid_sheet": "lib_nano_2",
         },
     },
     "volcengine_ark": {
