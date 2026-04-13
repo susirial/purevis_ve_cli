@@ -13,7 +13,7 @@
 <p align="center">
   <img src="demo/volcengine-color.png" height="56" alt="Volcengine" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="demo/libtv-logo.svg" height="24" alt="LibTV" />
+  <img src="demo/libtv-logo.svg" height="30" alt="LibTV" />
   &nbsp;&nbsp;&nbsp;&nbsp;
   <img src="https://z-cdn.chatglm.cn/z-ai/static/logo.svg" height="42" alt="Z.ai" />
 </p>
