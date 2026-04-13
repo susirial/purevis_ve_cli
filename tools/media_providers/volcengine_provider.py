@@ -429,6 +429,23 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
     supports_pose: bool = True
     supports_reference: bool = True
 
+    def capabilities(self) -> Dict[str, bool]:
+        data = super().capabilities()
+        data.update(
+            {
+                "prop_three_view_sheet": True,
+                "storyboard_grid_sheet": True,
+                "character_design": True,
+                "scene_design": True,
+                "prop_design": True,
+                "storyboard_breakdown": True,
+                "keyframe_prompting": True,
+                "video_prompting": True,
+                "image_analysis": True,
+            }
+        )
+        return data
+
     def _call_llm_json(self, system_prompt: str, user_prompt: str, tool_name: str) -> Dict[str, Any]:
         messages = [
             {"role": "system", "content": system_prompt},

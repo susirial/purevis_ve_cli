@@ -7,6 +7,7 @@ from agents.vision_analyzer import vision_analyzer_agent
 from tools.state_tools import create_project_state, get_project_state, discover_project_subjects_state, add_episode_state, list_all_projects_state, open_project_dashboard_state, update_project_settings_state, delete_subject
 from tools.style_tools import list_style_families_state, list_style_subtypes_state, preview_style_preset_state, get_project_style_config_state, update_project_style_config_state, delete_project_style_config_state, list_project_style_versions_state, get_prompt_style_context_state
 from tools.file_io import list_directory, delete_file
+from tools.media_provider_tools import describe_media_capabilities, suggest_media_route
 from typing import Optional
 from agents import GLOBAL_ASSET_GUIDELINE, build_agent_model_config
 
@@ -75,6 +76,14 @@ orchestrator_agent = Agent(
 - **标准化版式意图识别**：当用户提到“三视图 / 道具设定板 / 工业设计图 / 正面侧面背面 / turnaround / 16宫格 / 25宫格 / 多宫格分镜 / 故事板拼图 / storyboard contact sheet”等表达时，优先识别为“标准化版式生成任务”，不要把它当作普通自由构图图片需求。
 - **标准化版式路由规则 A（道具三视图）**：此类任务优先走 `director -> image_gen`。如果用户的道具描述不足，先交给 `director` 补全道具描述；描述充分时可直接把风格摘要与道具描述转交 `image_gen`，并明确要求其调用 `generate_prop_three_view_sheet`。
 - **标准化版式路由规则 B（多宫格分镜拼图）**：此类任务优先走 `visual_director -> image_gen`。必须先让 `visual_director` 输出 panel plan / Grid Sheet Prompt，再交给 `image_gen` 调用 `generate_storyboard_grid_sheet`。不要跳过 `visual_director` 直接让 `image_gen` 瞎编完整故事板。
+- **媒体 Provider 感知与配置引导规则**：当前系统底层存在多个媒体 provider，不同 provider 的能力范围、模型透明度与配置方式不同。
+- **媒体 Provider 决策规则**：当任务涉及媒体能力选择、模型选择、默认后端切换时，不要凭记忆硬编码判断，优先调用 `describe_media_capabilities` 或 `suggest_media_route`，依据 provider catalog、配置状态和路由结果进行决策。
+- **显式模型优先规则**：当用户明确指定模型时，必须优先尊重模型约束，不得静默替换成其他模型；如果当前 provider 或当前配置不支持该模型，必须明确说明原因，并给出可执行的配置建议。
+- **媒体路由意图识别**：当用户没有指定模型，但表达了“更快 / 更强质量 / 更低成本 / 更稳定 / 更适合完整工作流”等目标时，应先识别为媒体路由意图，再结合 provider catalog 做推荐。
+- **媒体能力分流规则**：当用户需要高阶工作流能力（如角色设计、场景设计、分镜拆解、提示词生成、图像分析）时，优先考虑工作流能力更完整的 provider；当用户需要显式指定生图或生视频模型时，优先考虑支持显式模型选择的 provider。
+- **媒体配置引导规则**：当用户只是想切换默认媒体后端时，可引导其配置 `MEDIA_PROVIDER`；如果系统已配置能力级 provider，则可进一步区分 `MEDIA_IMAGE_PROVIDER` 与 `MEDIA_VIDEO_PROVIDER`。
+- **媒体可用性规则**：不得把未接入、未配置或仅占位的 provider 说成“当前可直接使用”；只有在 provider catalog 显示可用，且所需环境变量满足时，才可以向用户承诺该能力当前可用。
+- **媒体选择澄清规则**：当媒体能力选择存在不确定性时，先解释当前可选路线，再询问用户是要“切默认后端”还是“本次任务显式指定模型”。
 - 你可以使用 veadk 提供的 transfer 机制，将工作转移给对应的子智能体。
 - **职责边界**：你自身**没有**生成图片或查询任务状态的工具（如 `generate_image`, `wait_for_task`）。你必须将这些工作完全外包给 `image_gen`。如果 `image_gen` 偷懒只给你返回了 `task_id` 而没有返回最终的图片，请再次将其 `transfer` 回给 `image_gen`，并严厉要求它自己去等待和下载！
 - 如果某个子智能体遇到失败或质量不达标，要求其重做或交给 vision_analyzer 分析原因。
@@ -103,6 +112,8 @@ orchestrator_agent = Agent(
         list_all_projects_state,
         open_project_dashboard_state,
         list_directory,
+        describe_media_capabilities,
+        suggest_media_route,
         delete_subject,
         delete_file
     ]

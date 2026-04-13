@@ -95,3 +95,16 @@ LOGGING_LEVEL=ERROR
 # 可选值: auto | purevis | libtv | volcengine_ark | vidu | kling
 # 默认 volcengine_ark
 MEDIA_PROVIDER=volcengine_ark
+
+# 【可选】按能力单独指定默认媒体提供方
+# 当生图与生视频希望走不同后端时使用；若留空，则回退到 MEDIA_PROVIDER
+MEDIA_IMAGE_PROVIDER=
+MEDIA_VIDEO_PROVIDER=
+
+# 【可选】按能力单独指定默认模型
+# 仅在目标 provider 支持显式模型切换时生效
+# 例如：
+# - LibTV 生图：lib_nano_2 | lib_nano_pro
+# - LibTV 生视频：seedance_2_0 | seedance_2_0_fast | kling_o3
+MEDIA_IMAGE_DEFAULT_MODEL=
+MEDIA_VIDEO_DEFAULT_MODEL=

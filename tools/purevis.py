@@ -10,13 +10,83 @@ except ImportError:
     def resize_and_compress_image(p, **kwargs): return p
 
 from tools.media_providers.base import FeatureUnavailableError
-from tools.media_providers.registry import get_media_provider as _get_media_provider
+from tools.media_providers.registry import (
+    get_media_provider as _get_media_provider,
+    get_media_provider_by_name,
+)
+from tools.media_providers.router import resolve_media_provider, resolve_provider_for_task
 
 PUREVIS_BASE_URL = "https://www.purevis.cn/api/v1"
 
 
 def get_media_provider():
     return _get_media_provider()
+
+
+def _raise_route_error(route_result: dict) -> None:
+    error = route_result.get("error", {}) if isinstance(route_result, dict) else {}
+    message = error.get("message") or "媒体路由失败。"
+    code = error.get("code")
+    provider = error.get("provider")
+    requested_model = error.get("requested_model")
+    requires_env = error.get("requires_env") or []
+
+    details = []
+    if code:
+        details.append(f"code={code}")
+    if provider:
+        details.append(f"provider={provider}")
+    if requested_model:
+        details.append(f"requested_model={requested_model}")
+    if requires_env:
+        details.append("requires_env=" + ",".join(requires_env))
+
+    if details:
+        message = f"{message} ({'; '.join(details)})"
+    raise FeatureUnavailableError(message)
+
+
+def _log_media_route(capability: str, provider_name: str, model_name: str = "", reason: str = "") -> None:
+    parts = [f"capability={capability}", f"provider={provider_name}"]
+    if model_name:
+        parts.append(f"model={model_name}")
+    if reason:
+        parts.append(f"reason={reason}")
+    print("[MediaRoute] " + " | ".join(parts))
+
+
+def _resolve_provider_for_execution(capability: str, requested_model: str = "", intent_tags: Optional[List[str]] = None):
+    route_result = resolve_media_provider(
+        capability=capability,
+        requested_model=requested_model,
+        intent_tags=intent_tags or [],
+    )
+    if not route_result.get("ok"):
+        _raise_route_error(route_result)
+    provider_name = route_result["provider"]
+    provider = get_media_provider_by_name(provider_name)
+    effective_model = requested_model or route_result.get("model", "") or ""
+    _log_media_route(
+        capability=capability,
+        provider_name=provider_name,
+        model_name=effective_model,
+        reason=route_result.get("reason", ""),
+    )
+    return provider, route_result
+
+
+def _resolve_provider_for_task_execution(task_id: str):
+    route_result = resolve_provider_for_task(task_id)
+    if not route_result.get("ok"):
+        _raise_route_error(route_result)
+    provider_name = route_result["provider"]
+    provider = get_media_provider_by_name(provider_name)
+    _log_media_route(
+        capability="query_task_status",
+        provider_name=provider_name,
+        reason=route_result.get("reason", ""),
+    )
+    return provider
 
 
 def _guess_image_mime(path: str) -> str:
@@ -153,7 +223,10 @@ def design_character(
         story_context: Optional context of the story.
         reference_variant: pure_character | full_character | mounted_character
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="design_character",
+        intent_tags=["high_level_workflow"],
+    )
     variant_instruction = _character_reference_variant_instruction(reference_variant)
     merged_story_context = f"{story_context}\n{variant_instruction}".strip() if story_context else variant_instruction
     return provider.design_character(
@@ -168,7 +241,10 @@ def design_scene(scene_name: str, scene_brief: str, style: str, story_context: s
     """
     Generate a scene t2i prompt and Chinese description.
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="design_scene",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.design_scene(
         scene_name=scene_name,
         scene_brief=scene_brief,
@@ -180,7 +256,10 @@ def design_prop(prop_name: str, prop_brief: str, style: str, story_context: str 
     """
     Generate a prop t2i prompt and Chinese description.
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="design_prop",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.design_prop(
         prop_name=prop_name,
         prop_brief=prop_brief,
@@ -198,7 +277,10 @@ def breakdown_storyboard(script: str, aspect_ratio: str, style: str, target_dura
         style: Visual style.
         target_duration: Expected duration in seconds (10-300).
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="breakdown_storyboard",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.breakdown_storyboard(
         script=script,
         aspect_ratio=aspect_ratio,
@@ -216,7 +298,10 @@ def generate_keyframe_prompts(segments: list, entity_names: list, aspect_ratio: 
         aspect_ratio: 16:9 | 9:16 | 1:1
         style: Visual style.
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_keyframe_prompts",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.generate_keyframe_prompts(
         segments=segments,
         entity_names=entity_names,
@@ -234,7 +319,10 @@ def generate_video_prompts(segments: list, entity_names: list, aspect_ratio: str
         aspect_ratio: 16:9 | 9:16 | 1:1
         style: Visual style.
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_video_prompts",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.generate_video_prompts(
         segments=segments,
         entity_names=entity_names,
@@ -251,7 +339,10 @@ def analyze_image(image_url_or_path: str, analyze_type: str) -> dict:
         image_url_or_path: HTTP(S) URL, or Local File Path (e.g. output/projects/...), or Base64 Data URI. The tool will automatically convert local paths to Base64.
         analyze_type: FULL, CHARACTER, ENVIRONMENT, or READ_IMAGE.
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="analyze_image",
+        intent_tags=["high_level_workflow"],
+    )
     return provider.analyze_image(
         image_url_or_path=image_url_or_path,
         analyze_type=analyze_type
@@ -272,8 +363,19 @@ def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = Non
         input_images: 【重要】如果要进行图生图（如参考已有的角色/场景图片），请将该图片的本地路径（如 "output/projects/.../xxx.jpg"）作为一个字符串放入此列表中传入（例如：["output/.../img.jpg"]）。工具会自动读取并转为 Base64。如果不使用图生图，留空即可。
         model: 可选，显式指定底层图片模型。不同 provider 仅接受自身支持的模型名。
     """
-    provider = get_media_provider()
-    return provider.generate_image(prompt=prompt, aspect_ratio=aspect_ratio, input_images=input_images, model=model)
+    intent_tags = ["explicit_model_control"] if model else []
+    provider, route_result = _resolve_provider_for_execution(
+        capability="generate_image",
+        requested_model=model,
+        intent_tags=intent_tags,
+    )
+    effective_model = model or route_result.get("model", "") or ""
+    return provider.generate_image(
+        prompt=prompt,
+        aspect_ratio=aspect_ratio,
+        input_images=input_images,
+        model=effective_model,
+    )
 
 def generate_reference_image(
     prompt: str,
@@ -292,84 +394,51 @@ def generate_reference_image(
         aspect_ratio: 画幅比
         input_images: 如果需要基于已有图片生成参考图，可传入本地路径列表（同 generate_image）。
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_reference_image",
+        intent_tags=["standardized_layout"],
+    )
     normalized_variant = _normalize_reference_variant(reference_variant)
     target_aspect_ratio = aspect_ratio
     if (entity_type or "").strip().lower() == "character" and not target_aspect_ratio:
         target_aspect_ratio = "9:16"
-    if getattr(provider, "supports_reference", False):
-        return provider.generate_reference_image(
-            prompt=prompt,
-            entity_type=entity_type,
-            reference_variant=normalized_variant,
-            aspect_ratio=target_aspect_ratio,
-            input_images=input_images,
-        )
-    suffix = f"\n\n请生成{entity_type}参考图：主体居中，干净背景，留白充足，便于后续图生图与一致性控制。"
-    if (entity_type or "").strip().lower() == "character":
-        suffix += "\n" + _character_reference_variant_instruction(normalized_variant)
-    return generate_image(prompt + suffix, aspect_ratio=target_aspect_ratio, input_images=input_images)
+    return provider.generate_reference_image(
+        prompt=prompt,
+        entity_type=entity_type,
+        reference_variant=normalized_variant,
+        aspect_ratio=target_aspect_ratio,
+        input_images=input_images,
+    )
 
 def generate_multi_view(prompt: str, character_name: str, ref_image: str) -> dict:
     """
     Submit a character multi-view turnaround sheet generation task.
     """
-    provider = get_media_provider()
-    if getattr(provider, "supports_multi_view", False):
-        return provider.generate_multi_view(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = (
-        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色多视图拼图（单张图，16:9）。"
-        "左侧1/3是一张角色的大脸特写照，右侧2/3依次是角色的正面全身照、3/4侧面全身照、背面的全身照。"
-        "无任何分割线，无文字，无水印。"
-        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
-        "左1/3：角色大脸特写照（正面视角，脸部占大比例，务必包含完整头部轮廓，头发不得被裁切出画框，清晰展示五官与发型细节）。"
-        "右第1列：角色正面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
-        "右第2列：角色3/4侧面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
-        "右第3列：角色背面全身照（从头到脚完整展示，包含完整的发型和鞋子）。"
-        "四个视图必须是同一角色、同一服饰与配色、同一画风。"
-        "造型、画风、着装等所有设计都严格参考图1，不要改变角色身份，不要新增道具、武器、挂件、额外人物或环境叙事元素。"
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_multi_view",
+        intent_tags=["standardized_layout"],
     )
-    return generate_image(prompt + suffix, input_images=[ref_image])
+    return provider.generate_multi_view(prompt=prompt, character_name=character_name, ref_image=ref_image)
 
 def generate_expression_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
     """
     Submit a character expression sheet generation task.
     """
-    provider = get_media_provider()
-    if getattr(provider, "supports_expression", False):
-        return provider.generate_expression_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = (
-        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色表情设定拼图（单张图，3x3）。"
-        "单张图共九格，顺序固定为：第一行 neutral / happy / laughing；第二行 sad / angry / surprised；第三行 fearful / disgusted / determined。"
-        "无任何分割线，无文字，无标签，无水印，无 UI 元素。"
-        "每一格都必须是角色头部到上肩的近景特写，务必包含完整头部轮廓，头发不得裁切出画框。"
-        "九格必须保持同一角色身份、同一发型、同一发色、同一服装领口与可见配饰、同一画风与配色。"
-        "五官结构、发际线、眉形、眼型、鼻子、嘴型、下颌线都要严格参考输入图1，不得改变角色身份。"
-        "每个表情必须通过清晰的微表情差异体现：眉毛位置、眼睑开合、嘴角弧度、鼻翼、脸颊紧张度。"
-        "不得新增道具、武器、挂件、额外角色或环境叙事元素。"
-        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_expression_sheet",
+        intent_tags=["standardized_layout"],
     )
-    return generate_image(prompt + suffix, input_images=[ref_image])
+    return provider.generate_expression_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
 
 def generate_pose_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
     """
     Submit a character pose sheet generation task.
     """
-    provider = get_media_provider()
-    if getattr(provider, "supports_pose", False):
-        return provider.generate_pose_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
-    suffix = (
-        f"\n\n根据输入图1中 {character_name} 的角色参考图，生成角色姿势设定拼图（单张图，16:9）。"
-        "采用 3x2 或 3x3 的多格布局，至少包含六个姿势，顺序优先为：idle standing、walking mid-stride、running/sprinting、signature action pose、seated/resting pose、iconic power pose。"
-        "无任何分割线，无文字，无标签，无水印，无 UI 元素。"
-        "每一格都必须完整展示角色从头到脚的全身，包含完整发型、双手、双脚和鞋子，不得裁切肢体，不得遗漏鞋面或鞋底。"
-        "所有格子必须是同一角色、同一服饰与配色、同一发型、同一体型比例、同一画风。"
-        "造型、画风、着装、发型、配饰都严格参考输入图1，不得改变角色身份。"
-        "不得新增道具、武器、挂件、额外角色或环境叙事元素；除非该元素已经属于输入图1中的基础角色设计。"
-        "动作可以变化，但角色设定不能漂移；动态姿势必须具备清晰的动作线、自然重心、合理的布料与头发运动反馈。"
-        "背景必须保持纯净的中性背景；如果上游提示词没有明确指定其他中性背景，则使用干净的白色摄影棚背景。"
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_pose_sheet",
+        intent_tags=["standardized_layout"],
     )
-    return generate_image(prompt + suffix, input_images=[ref_image])
+    return provider.generate_pose_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
 
 
 def generate_prop_three_view_sheet(
@@ -387,7 +456,10 @@ def generate_prop_three_view_sheet(
         input_images: 如果需要参考现有道具图片，可传入本地路径列表。
         aspect_ratio: 画幅比，默认 16:9 横向以容纳三视图排版。
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_prop_three_view_sheet",
+        intent_tags=["standardized_layout"],
+    )
     return provider.generate_prop_three_view_sheet(
         prompt=prompt,
         prop_name=prop_name,
@@ -411,7 +483,10 @@ def generate_storyboard_grid_sheet(
         aspect_ratio: 画幅比，默认 1:1 以适配 4x4 / 5x5 网格。
         input_images: 如果需要参考已有角色或场景图片，可传入本地路径列表。
     """
-    provider = get_media_provider()
+    provider, _ = _resolve_provider_for_execution(
+        capability="generate_storyboard_grid_sheet",
+        intent_tags=["standardized_layout"],
+    )
     return provider.generate_storyboard_grid_sheet(
         prompt=prompt,
         panel_count=panel_count,
@@ -438,21 +513,27 @@ def generate_video(
         generate_audio: 是否生成音频，默认 True。
         model: 可选，显式指定底层视频模型。不同 provider 仅接受自身支持的模型名。
     """
-    provider = get_media_provider()
+    intent_tags = ["explicit_model_control"] if model else []
+    provider, route_result = _resolve_provider_for_execution(
+        capability="generate_video",
+        requested_model=model,
+        intent_tags=intent_tags,
+    )
+    effective_model = model or route_result.get("model", "") or ""
     return provider.generate_video(
         prompt=prompt,
         input_images=input_images,
         duration=duration,
         aspect_ratio=aspect_ratio,
         generate_audio=generate_audio,
-        model=model,
+        model=effective_model,
     )
 
 def query_task_status(task_id: str) -> dict:
     """
     Query task status and result by task_id.
     """
-    provider = get_media_provider()
+    provider = _resolve_provider_for_task_execution(task_id)
     return provider.query_task_status(task_id)
 
 def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> dict:

@@ -88,6 +88,23 @@ class PureVisMediaProvider(BaseMediaProvider):
     supports_pose = True
     supports_reference = True
 
+    def capabilities(self) -> Dict[str, bool]:
+        data = super().capabilities()
+        data.update(
+            {
+                "prop_three_view_sheet": True,
+                "storyboard_grid_sheet": True,
+                "character_design": True,
+                "scene_design": True,
+                "prop_design": True,
+                "storyboard_breakdown": True,
+                "keyframe_prompting": True,
+                "video_prompting": True,
+                "image_analysis": True,
+            }
+        )
+        return data
+
     def generate_image(
         self,
         prompt: str,
