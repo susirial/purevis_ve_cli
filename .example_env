@@ -76,6 +76,14 @@ VOLCENGINE_ARK_API_KEY=
 # 兼容场景下也支持回退到 MODEL_TOOL_VISION_ANALYZER_API_KEY 或 MODEL_AGENT_API_KEY。
 PUREVIS_API_KEY=
 
+# LibTV API Key
+# 【可选】如果配置了此 Key，可启用 LibTV 作为底层媒体提供方。
+# LibTV 当前支持的模型：
+# - 生图：lib_nano_2、lib_nano_pro
+# - 生视频：seedance_2_0、seedance_2_0_fast、kling_o3
+# 如需显式使用，请将下方 MEDIA_PROVIDER 设置为 libtv。
+LIBTV_ACCESS_KEY=
+
 # ------------------------------------------------------------------------------
 # 系统运行配置
 # ------------------------------------------------------------------------------
@@ -84,6 +92,6 @@ PUREVIS_API_KEY=
 LOGGING_LEVEL=ERROR
 
 # 【可选】显式指定媒体提供方
-# 可选值: auto | purevis | volcengine_ark | vidu | kling
+# 可选值: auto | purevis | libtv | volcengine_ark | vidu | kling
 # 默认 volcengine_ark
 MEDIA_PROVIDER=volcengine_ark

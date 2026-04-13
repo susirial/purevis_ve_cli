@@ -261,7 +261,7 @@ def analyze_image(image_url_or_path: str, analyze_type: str) -> dict:
 # Task 4: Tool APIs (Asynchronous)
 # ==========================================
 
-def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = None) -> dict:
+def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = None, model: str = "") -> dict:
     """
     Submit a general-purpose image generation task (Text-to-Image or Image-to-Image).
     Returns task_id to poll later.
@@ -270,9 +270,10 @@ def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = Non
         prompt: 提示词描述。
         aspect_ratio: 画幅比，例如 "16:9"、"9:16"、"1:1" 等。
         input_images: 【重要】如果要进行图生图（如参考已有的角色/场景图片），请将该图片的本地路径（如 "output/projects/.../xxx.jpg"）作为一个字符串放入此列表中传入（例如：["output/.../img.jpg"]）。工具会自动读取并转为 Base64。如果不使用图生图，留空即可。
+        model: 可选，显式指定底层图片模型。不同 provider 仅接受自身支持的模型名。
     """
     provider = get_media_provider()
-    return provider.generate_image(prompt=prompt, aspect_ratio=aspect_ratio, input_images=input_images)
+    return provider.generate_image(prompt=prompt, aspect_ratio=aspect_ratio, input_images=input_images, model=model)
 
 def generate_reference_image(
     prompt: str,
@@ -418,7 +419,14 @@ def generate_storyboard_grid_sheet(
         input_images=input_images,
     )
 
-def generate_video(prompt: str, input_images: list = None, duration: int = 12, aspect_ratio: str = "16:9", generate_audio: bool = True) -> dict:
+def generate_video(
+    prompt: str,
+    input_images: list = None,
+    duration: int = 12,
+    aspect_ratio: str = "16:9",
+    generate_audio: bool = True,
+    model: str = "",
+) -> dict:
     """
     Submit a video generation task.
     
@@ -428,6 +436,7 @@ def generate_video(prompt: str, input_images: list = None, duration: int = 12, a
         duration: 视频时长（秒），支持 4-12 秒或 -1（自动），默认 12。
         aspect_ratio: 画幅比，支持 '16:9', '9:16', '1:1' 等，默认 '16:9'。
         generate_audio: 是否生成音频，默认 True。
+        model: 可选，显式指定底层视频模型。不同 provider 仅接受自身支持的模型名。
     """
     provider = get_media_provider()
     return provider.generate_video(
@@ -436,6 +445,7 @@ def generate_video(prompt: str, input_images: list = None, duration: int = 12, a
         duration=duration,
         aspect_ratio=aspect_ratio,
         generate_audio=generate_audio,
+        model=model,
     )
 
 def query_task_status(task_id: str) -> dict:

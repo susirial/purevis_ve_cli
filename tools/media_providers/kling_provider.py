@@ -13,6 +13,7 @@ class KlingMediaProvider(BaseMediaProvider):
         prompt: str,
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("Kling 媒体提供方尚未接入。")
 
@@ -23,6 +24,7 @@ class KlingMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("Kling 媒体提供方尚未接入。")
 

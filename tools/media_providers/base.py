@@ -14,12 +14,35 @@ class BaseMediaProvider(ABC):
     supports_pose: bool = False
     supports_reference: bool = False
 
+    def capabilities(self) -> Dict[str, bool]:
+        return {
+            "image_generation": True,
+            "video_generation": True,
+            "reference_image": self.supports_reference,
+            "multi_view": self.supports_multi_view,
+            "expression_sheet": self.supports_expression,
+            "pose_sheet": self.supports_pose,
+            "prop_three_view_sheet": False,
+            "storyboard_grid_sheet": False,
+            "character_design": False,
+            "scene_design": False,
+            "prop_design": False,
+            "storyboard_breakdown": False,
+            "keyframe_prompting": False,
+            "video_prompting": False,
+            "image_analysis": False,
+        }
+
+    def supported_models(self) -> Dict[str, List[str]]:
+        return {"image": [], "video": []}
+
     @abstractmethod
     def generate_image(
         self,
         prompt: str,
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
@@ -31,6 +54,7 @@ class BaseMediaProvider(ABC):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise NotImplementedError
 

@@ -498,7 +498,10 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         prompt: str,
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("volcengine_ark provider 暂不支持通过 model 参数显式切换底层模型。")
         resp = local_generate_image(
             prompt=prompt, aspect_ratio=aspect_ratio, input_images=input_images,
         )
@@ -520,7 +523,10 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("volcengine_ark provider 暂不支持通过 model 参数显式切换底层模型。")
         return local_generate_video(
             prompt=prompt,
             input_images=input_images,

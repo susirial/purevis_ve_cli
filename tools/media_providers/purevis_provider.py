@@ -93,7 +93,10 @@ class PureVisMediaProvider(BaseMediaProvider):
         prompt: str,
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload: Dict[str, Any] = {"prompt": prompt}
         if aspect_ratio:
             payload["aspect_ratio"] = aspect_ratio
@@ -185,7 +188,10 @@ class PureVisMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload: Dict[str, Any] = {
             "prompt": prompt,
             "duration": duration,
