@@ -9,7 +9,7 @@ try:
 except ImportError:
     def resize_and_compress_image(p, **kwargs): return p
 
-from tools.media_providers.base import FeatureUnavailableError
+from tools.media_providers.base import FeatureUnavailableError, normalize_audio_mode
 from tools.media_providers.registry import (
     get_media_provider as _get_media_provider,
     get_media_provider_by_name,
@@ -311,13 +311,18 @@ def generate_keyframe_prompts(segments: list, entity_names: list, aspect_ratio: 
 
 def generate_video_prompts(segments: list, entity_names: list, aspect_ratio: str, style: str) -> dict:
     """
-    Generate per-segment video timeline prompts.
+    Generate per-segment video timeline prompts and recommended merged clip plans.
     
     Args:
         segments: 必须是一个包含具体剧本情节或画面分镜描述的列表（例如从 `breakdown_storyboard` 返回的结果）。严禁传入空列表或无实质剧情内容的参数，否则接口会报错 INTENT_REJECTED。
         entity_names: List of entity names to be included.
         aspect_ratio: 16:9 | 9:16 | 1:1
         style: Visual style.
+
+    Returns:
+        通常包含逐分镜 `prompts`，以及一份 `recommended_video_groups`。
+        后者用于把 2-5 个相邻分镜按连续动作、统一场景和统一光影逻辑合并成一个 8-15 秒的较长视频段，
+        更适合 Kling O3、Seedance 2.0 这类支持更长连贯镜头的视频模型。
     """
     provider, _ = _resolve_provider_for_execution(
         capability="generate_video_prompts",
@@ -500,6 +505,7 @@ def generate_video(
     duration: int = 12,
     aspect_ratio: str = "16:9",
     generate_audio: bool = True,
+    audio_mode: str = "ambient_only",
     model: str = "",
 ) -> dict:
     """
@@ -507,13 +513,15 @@ def generate_video(
     
     Args:
         prompt: 提示词描述。
-        input_images: 【重要】最多包含2个本地图片路径的列表。第1张作为首帧，如果有第2张则作为尾帧。工具会自动读取并转为 Base64。
+        input_images: 【重要】最多包含2个本地图片路径的列表，默认语义是“参考素材”，工具会自动读取并转为 Base64。
             如果上游已经明确指定关键帧或镜头图，优先传入该关键帧。
-            如果没有明确关键帧，而同一主体同时存在“多视图”和“纯角色参考图”，默认优先使用“多视图”作为 input_images。
+            如果没有明确关键帧，而同一主体同时存在“多视图设定图”和“纯角色参考图”，默认优先使用“多视图设定图”作为 input_images。
+            只有在用户明确要求“首帧/尾帧控制”，且当前 provider 支持双图时，才将双图解释为首帧参考 + 尾帧参考；否则应视为普通参考素材。
         duration: 视频时长（秒）。不同 provider 支持范围不同；当前 LibTV 为 4-15 秒，默认 12。
             调用前建议先通过 suggest_media_route / describe_media_capabilities 预检当前路由的时长约束。
         aspect_ratio: 画幅比，支持 '16:9', '9:16', '1:1' 等，默认 '16:9'。
         generate_audio: 是否生成音频，默认 True。
+        audio_mode: 音频模式。`ambient_only` 表示无台词，仅环境音/音乐；`speech` 表示包含口播/旁白/对白。
         model: 可选，显式指定底层视频模型。不同 provider 仅接受自身支持的模型名。
     """
     intent_tags = ["explicit_model_control"] if model else []
@@ -523,6 +531,7 @@ def generate_video(
         intent_tags=intent_tags,
     )
     effective_model = model or route_result.get("model", "") or ""
+    normalized_audio_mode = normalize_audio_mode(audio_mode)
     try:
         return provider.generate_video(
             prompt=prompt,
@@ -530,14 +539,15 @@ def generate_video(
             duration=duration,
             aspect_ratio=aspect_ratio,
             generate_audio=generate_audio,
+            audio_mode=normalized_audio_mode,
             model=effective_model,
         )
     except FeatureUnavailableError as exc:
         provider_name = route_result.get("provider", "") or "unknown_provider"
         model_name = effective_model or "default"
         raise FeatureUnavailableError(
-            "当前视频任务已路由到 %s / %s，duration=%s，aspect_ratio=%s。%s"
-            % (provider_name, model_name, duration, aspect_ratio, str(exc))
+            "当前视频任务已路由到 %s / %s，duration=%s，aspect_ratio=%s，generate_audio=%s，audio_mode=%s。%s"
+            % (provider_name, model_name, duration, aspect_ratio, generate_audio, normalized_audio_mode, str(exc))
         ) from exc
 
 def query_task_status(task_id: str) -> dict:

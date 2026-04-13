@@ -13,7 +13,12 @@ except ImportError:
     def resize_and_compress_image(p, **kwargs):
         return p
 
-from tools.media_providers.base import BaseMediaProvider, FeatureUnavailableError
+from tools.media_providers.base import (
+    BaseMediaProvider,
+    FeatureUnavailableError,
+    build_audio_mode_instruction,
+    normalize_audio_mode,
+)
 from tools.media_providers.registry import register_provider
 
 
@@ -205,12 +210,15 @@ class PureVisMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        audio_mode: str = "ambient_only",
         model: str = "",
     ) -> Dict[str, Any]:
         if model:
             raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
+        normalized_audio_mode = normalize_audio_mode(audio_mode)
+        normalized_prompt = f"{prompt.rstrip()}\n{build_audio_mode_instruction(generate_audio, normalized_audio_mode)}"
         payload: Dict[str, Any] = {
-            "prompt": prompt,
+            "prompt": normalized_prompt,
             "duration": duration,
             "aspect_ratio": aspect_ratio,
             "generate_audio": generate_audio,

@@ -24,6 +24,7 @@ class KlingMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        audio_mode: str = "ambient_only",
         model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("Kling 媒体提供方尚未接入。")

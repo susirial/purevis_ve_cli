@@ -8,6 +8,37 @@ class FeatureUnavailableError(Exception):
     pass
 
 
+def normalize_audio_mode(audio_mode: str) -> str:
+    normalized = (audio_mode or "ambient_only").strip().lower()
+    aliases = {
+        "ambient": "ambient_only",
+        "ambient_only": "ambient_only",
+        "music": "ambient_only",
+        "music_only": "ambient_only",
+        "no_speech": "ambient_only",
+        "speech": "speech",
+        "voiceover": "speech",
+        "dialogue": "speech",
+        "dialogue_or_voiceover": "speech",
+    }
+    resolved = aliases.get(normalized, normalized)
+    if resolved not in {"ambient_only", "speech"}:
+        raise FeatureUnavailableError(
+            "audio_mode 不合法：%s。仅支持 ambient_only（无台词，仅环境音/音乐）或 speech（包含口播/对白）。"
+            % audio_mode
+        )
+    return resolved
+
+
+def build_audio_mode_instruction(generate_audio: bool, audio_mode: str) -> str:
+    normalized = normalize_audio_mode(audio_mode)
+    if not generate_audio:
+        return "音频要求：不生成音频。"
+    if normalized == "ambient_only":
+        return "音频要求：仅环境音/音乐，无口播、无旁白、无对白。"
+    return "音频要求：包含口播/对白或旁白；如需人声内容，必须在提示词中明确写出台词或口播文本。"
+
+
 class BaseMediaProvider(ABC):
     supports_multi_view: bool = False
     supports_expression: bool = False
@@ -54,6 +85,7 @@ class BaseMediaProvider(ABC):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        audio_mode: str = "ambient_only",
         model: str = "",
     ) -> Dict[str, Any]:
         raise NotImplementedError

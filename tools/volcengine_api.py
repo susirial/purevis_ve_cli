@@ -19,7 +19,7 @@ except ImportError:
     def resize_and_compress_image(p, **kwargs):
         return p
 
-from tools.media_providers.base import FeatureUnavailableError
+from tools.media_providers.base import FeatureUnavailableError, build_audio_mode_instruction, normalize_audio_mode
 
 
 DEFAULT_API_BASE = "https://ark.cn-beijing.volces.com/api/v3"
@@ -303,8 +303,11 @@ def local_generate_video(
     duration: int = 12,
     aspect_ratio: str = "16:9",
     generate_audio: bool = True,
+    audio_mode: str = "ambient_only",
 ) -> Dict[str, Any]:
-    content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+    normalized_audio_mode = normalize_audio_mode(audio_mode)
+    prompt_with_audio_instruction = f"{prompt.rstrip()}\n{build_audio_mode_instruction(generate_audio, normalized_audio_mode)}"
+    content: List[Dict[str, Any]] = [{"type": "text", "text": prompt_with_audio_instruction}]
     
     if input_images and len(input_images) > 0:
         if len(input_images) == 1:

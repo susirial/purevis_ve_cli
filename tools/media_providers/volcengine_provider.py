@@ -6,7 +6,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from core.model_config import get_tool_temperature
-from tools.media_providers.base import BaseMediaProvider
+from tools.media_providers.base import BaseMediaProvider, FeatureUnavailableError, normalize_audio_mode
 from tools.media_providers.registry import register_provider
 from tools.volcengine_api import (
     _encode_image_to_data_uri,
@@ -307,8 +307,12 @@ _SYS_VIDEO_PROMPTS = """\
 You are a senior motion director and video prompt engineer specializing in AI video generation (Seedance 2.0 / Kling / Sora class models).
 
 Generate video generation prompts using professional storyboard-script format with time codes.
+Think like a real motion director planning for modern image-to-video models that can hold longer coherent takes (for example 8-15 seconds on Kling O3 / Seedance 2.0 class models).
+Do NOT assume every storyboard beat must become a separate generated clip. When adjacent beats belong to one continuous scene, one camera setup family, and one continuity chain, prefer grouping them into a longer clip with internal beat progression.
 
-Return a single valid JSON object with key "prompts" — an array where each element contains:
+Return a single valid JSON object with these top-level keys:
+
+"prompts": an array where each element contains:
 
 "shot_id": (string, matching the segment)
 
@@ -335,13 +339,35 @@ Return a single valid JSON object with key "prompts" — an array where each ele
   "special_effect": (none / slow-motion / speed-ramp / rack-focus / dolly-zoom)
 }
 
+"recommended_video_groups": an array describing how to merge consecutive storyboard shots into fewer longer video generations when continuity supports it. Each element contains:
+- "clip_id": (string, e.g. "clip_01")
+- "shot_ids": (array of consecutive shot ids included in this clip)
+- "total_duration_s": (number, preferred total duration for the merged clip)
+- "merge_strategy": (string, explain why these beats should be generated as one continuous video)
+- "prompt": (string, one complete long-form video prompt with internal beat progression and timecodes for the whole clip)
+- "input_image_strategy": {
+    "mode": (single_reference / dual_reference / keyframe_anchor),
+    "reason": (string),
+    "recommended_reference_priority": (array, usually ["multi_view_sheet", "keyframe", "single_reference"])
+  }
+- "audio_strategy": {
+    "mode": (ambient_only / speech),
+    "contains_dialogue": (boolean),
+    "reason": (string)
+  }
+
 Key rules:
 - ALWAYS use specific time codes [00:00-00:XX] — never leave timing vague
 - ALWAYS anchor style to a specific director/film reference, not generic "cinematic"
 - Describe PHYSICAL actions: "dust particles float in slow motion" not "atmospheric feel"
 - Each shot prompt must specify camera movement explicitly
 - End with consistency constraints for character/lighting/physics continuity
-- Keep each shot segment to 3-5 seconds maximum for best AI video generation results"""
+- Keep individual storyboard beats concise, but when 2-5 adjacent beats form one continuous action arc, merge them into a recommended clip of roughly 8-15 seconds instead of forcing separate generations
+- Prefer merged clips for opening-build-escalation-resolution structures such as 2s + 3s + 3s + 2s = one 10s clip
+- Only keep shots separate when there is a hard cut in location, cast, lighting logic, screen direction, or camera language
+- For image-to-video planning, default reference priority is: multi-view sheet > approved keyframe > single reference image
+- If no dialogue/voiceover text is explicitly provided, default audio strategy to ambient_only (music / atmosphere / sound design only)
+"""
 
 _SYS_MULTI_VIEW = """\
 You are a professional character layout-sheet artist. Generate a single 16:9 multi-view character board based strictly on reference image 1.
@@ -540,6 +566,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        audio_mode: str = "ambient_only",
         model: str = "",
     ) -> Dict[str, Any]:
         if model:
@@ -550,6 +577,7 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             duration=duration,
             aspect_ratio=aspect_ratio,
             generate_audio=generate_audio,
+            audio_mode=normalize_audio_mode(audio_mode),
         )
 
     def query_task_status(self, task_id: str) -> Dict[str, Any]:
@@ -788,14 +816,16 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             f"包含实体（角色/道具/场景）：{json.dumps(entity_names, ensure_ascii=False)}\n"
             f"画面比例：{aspect_ratio}\n"
             f"风格：{style}\n\n"
-            "为每个分镜生成专业视频生成提示词（分镜脚本格式 + 时间码）。\n"
+            "请同时完成两件事：1）为每个分镜生成专业视频生成提示词；2）给出一份“推荐合并视频段”方案，把可以连续生成的相邻分镜尽量合并成 8-15 秒的较长视频。\n"
             "要求：\n"
             "1. 使用【Style】和【Duration】标头 + [00:00-00:XX] 时间码格式\n"
             "2. 风格锚点必须具体到导演/电影/艺术流派，禁止使用泛化的'cinematic'\n"
             "3. 描述物理动作而非抽象概念：'dust particles float in slow motion' 而非 'atmospheric feel'\n"
             "4. 每个镜头必须明确指定镜头运动方式和速度\n"
             "5. 以一致性约束结尾：角色设计/光影逻辑/物理效果的连贯性\n"
-            "6. 每个镜头片段控制在3-5秒以内"
+            "6. 不要机械地把每个分镜都拆成独立视频；若 2-5 个相邻分镜属于同一场景、同一角色连续动作、同一光影逻辑，应优先合并为一个 8-15 秒 clip\n"
+            "7. 对于 Kling O3、Seedance 2.0 这类支持更长时长的模型，优先推荐较长但连贯的镜头设计，例如 2秒 + 3秒 + 3秒 + 2秒 合并成一个 10 秒 clip\n"
+            "8. 推荐合并视频段时，必须说明合并理由、总时长、参考素材策略和音频策略；若没有明确台词文本，默认音频策略为 ambient_only"
         )
         return self._call_llm_json(_SYS_VIDEO_PROMPTS, user_prompt, "GENERATE_VIDEO_PROMPTS")
 

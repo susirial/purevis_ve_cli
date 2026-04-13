@@ -13,7 +13,12 @@ import urllib.request
 import uuid
 from typing import Any, Dict, List, Optional
 
-from tools.media_providers.base import BaseMediaProvider, FeatureUnavailableError
+from tools.media_providers.base import (
+    BaseMediaProvider,
+    FeatureUnavailableError,
+    build_audio_mode_instruction,
+    normalize_audio_mode,
+)
 from tools.media_providers.registry import register_provider
 
 
@@ -133,12 +138,14 @@ class LibTVMediaProvider(BaseMediaProvider):
         duration: int = 12,
         aspect_ratio: str = "16:9",
         generate_audio: bool = True,
+        audio_mode: str = "ambient_only",
         model: str = "",
     ) -> Dict[str, Any]:
         self._validate_prompt(prompt)
         normalized_model = self._normalize_video_model(model)
         normalized_duration = self._normalize_video_duration(duration)
         normalized_ratio = self._normalize_video_ratio(aspect_ratio)
+        normalized_audio_mode = normalize_audio_mode(audio_mode)
         reference_urls = self._upload_references(input_images or [])
         session_context = self._ensure_active_session()
         start_seq = self._get_latest_seq(session_context["session_id"])
@@ -146,6 +153,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             "输出视频，不要输出图片。",
             "优先保证镜头运动与主体一致性。",
             "生成音频：是" if generate_audio else "生成音频：否",
+            "音频模式：%s" % normalized_audio_mode,
+            build_audio_mode_instruction(generate_audio, normalized_audio_mode),
         ]
         message = self._build_message(
             capability="生视频",
