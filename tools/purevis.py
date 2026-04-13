@@ -508,7 +508,10 @@ def generate_video(
     Args:
         prompt: 提示词描述。
         input_images: 【重要】最多包含2个本地图片路径的列表。第1张作为首帧，如果有第2张则作为尾帧。工具会自动读取并转为 Base64。
-        duration: 视频时长（秒），支持 4-12 秒或 -1（自动），默认 12。
+            如果上游已经明确指定关键帧或镜头图，优先传入该关键帧。
+            如果没有明确关键帧，而同一主体同时存在“多视图”和“纯角色参考图”，默认优先使用“多视图”作为 input_images。
+        duration: 视频时长（秒）。不同 provider 支持范围不同；当前 LibTV 为 4-15 秒，默认 12。
+            调用前建议先通过 suggest_media_route / describe_media_capabilities 预检当前路由的时长约束。
         aspect_ratio: 画幅比，支持 '16:9', '9:16', '1:1' 等，默认 '16:9'。
         generate_audio: 是否生成音频，默认 True。
         model: 可选，显式指定底层视频模型。不同 provider 仅接受自身支持的模型名。
@@ -520,14 +523,22 @@ def generate_video(
         intent_tags=intent_tags,
     )
     effective_model = model or route_result.get("model", "") or ""
-    return provider.generate_video(
-        prompt=prompt,
-        input_images=input_images,
-        duration=duration,
-        aspect_ratio=aspect_ratio,
-        generate_audio=generate_audio,
-        model=effective_model,
-    )
+    try:
+        return provider.generate_video(
+            prompt=prompt,
+            input_images=input_images,
+            duration=duration,
+            aspect_ratio=aspect_ratio,
+            generate_audio=generate_audio,
+            model=effective_model,
+        )
+    except FeatureUnavailableError as exc:
+        provider_name = route_result.get("provider", "") or "unknown_provider"
+        model_name = effective_model or "default"
+        raise FeatureUnavailableError(
+            "当前视频任务已路由到 %s / %s，duration=%s，aspect_ratio=%s。%s"
+            % (provider_name, model_name, duration, aspect_ratio, str(exc))
+        ) from exc
 
 def query_task_status(task_id: str) -> dict:
     """

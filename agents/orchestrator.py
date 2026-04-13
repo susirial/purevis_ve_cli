@@ -54,7 +54,7 @@ orchestrator_agent = Agent(
 
 【阶段 6：视频合成】
 - 目标：将关键帧转换为动态视频片段。
-- 动作：将图片和对应提示词交给 video_gen 智能体生成视频前，调用 `get_prompt_style_context_state(project_name, "video")` 获取视频风格注入块，并要求 `video_gen` 在生成提示词时显式继承这些风格约束，最后保存到本地。
+- 动作：将图片和对应提示词交给 video_gen 智能体生成视频前，调用 `get_prompt_style_context_state(project_name, "video")` 获取视频风格注入块，并要求 `video_gen` 在生成提示词时显式继承这些风格约束，最后保存到本地。如果用户没有明确指定首帧/尾帧/关键帧，而同一主体同时存在“多视图”和“纯角色参考图”，默认优先将“多视图”路径交给 `video_gen` 作为图生视频输入图；只有在缺少多视图或用户明确要求锁定某张参考图时，才退回使用“纯角色参考图”。
 
 【调度规则与要求】
 - **结构化命名规范**：目前主体库采用了 `主体_<类型>_<名称>_<变体描述>`（例如 `主体_人物_崔秀妍_穿短裙`）的命名方式。在向用户报告资产或检索状态时，请使用这种更有意义的名称进行表达。
@@ -78,6 +78,7 @@ orchestrator_agent = Agent(
 - **标准化版式路由规则 B（多宫格分镜拼图）**：此类任务优先走 `visual_director -> image_gen`。必须先让 `visual_director` 输出 panel plan / Grid Sheet Prompt，再交给 `image_gen` 调用 `generate_storyboard_grid_sheet`。不要跳过 `visual_director` 直接让 `image_gen` 瞎编完整故事板。
 - **媒体 Provider 感知与配置引导规则**：当前系统底层存在多个媒体 provider，不同 provider 的能力范围、模型透明度与配置方式不同。
 - **媒体 Provider 决策规则**：当任务涉及媒体能力选择、模型选择、默认后端切换时，不要凭记忆硬编码判断，优先调用 `describe_media_capabilities` 或 `suggest_media_route`，依据 provider catalog、配置状态和路由结果进行决策。
+- **视频提交前预检规则**：当任务涉及图生视频时长、模型能力或画幅限制时，必须在提交前通过 `suggest_media_route` 或 `describe_media_capabilities` 读取当前路由约束；若发现 `duration` 超出当前 provider / model 的合法区间，不要直接转交一个必然失败的参数组合给 `video_gen`。
 - **显式模型优先规则**：当用户明确指定模型时，必须优先尊重模型约束，不得静默替换成其他模型；如果当前 provider 或当前配置不支持该模型，必须明确说明原因，并给出可执行的配置建议。
 - **媒体路由意图识别**：当用户没有指定模型，但表达了“更快 / 更强质量 / 更低成本 / 更稳定 / 更适合完整工作流”等目标时，应先识别为媒体路由意图，再结合 provider catalog 做推荐。
 - **媒体能力分流规则**：当用户需要高阶工作流能力（如角色设计、场景设计、分镜拆解、提示词生成、图像分析）时，优先考虑工作流能力更完整的 provider；当用户需要显式指定生图或生视频模型时，优先考虑支持显式模型选择的 provider。

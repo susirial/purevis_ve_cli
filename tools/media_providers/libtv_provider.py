@@ -466,9 +466,12 @@ class LibTVMediaProvider(BaseMediaProvider):
         try:
             normalized = int(duration)
         except (TypeError, ValueError) as exc:
-            raise FeatureUnavailableError("LibTV 视频时长必须是整数。") from exc
+            raise FeatureUnavailableError("LibTV 视频时长必须是整数，收到的是无法解析的值：%r。" % duration) from exc
         if normalized < 4 or normalized > 15:
-            raise FeatureUnavailableError("LibTV 视频时长必须在 4 到 15 秒之间。")
+            raise FeatureUnavailableError(
+                "LibTV 视频时长不合法：收到 %s 秒。支持范围为 4 到 15 秒。请改为 4-15 秒，或切换支持更短/更长时长的 provider/model。"
+                % normalized
+            )
         return normalized
 
     def _validate_prompt(self, prompt: str) -> None:
