@@ -176,12 +176,17 @@ async def custom_compact_session_memory(runner, app_name="purevis_app", user_id=
         model_name="deepseek-v3-2-251201"
     )
     summarizer_runner = VeadkRunner(agent=summarizer_agent)
-    summary_response = await summarizer_runner.run(
-        messages=(
-            "请压缩以下历史为简洁备忘，保留目标、关键事实、关键决策、待办与约束。"
-            "输出不超过 4000 中文字符。\n\nEvents are:\n" + event_text
+    try:
+        summary_response = await summarizer_runner.run(
+            messages=(
+                "请压缩以下历史为简洁备忘，保留目标、关键事实、关键决策、待办与约束。"
+                "输出不超过 4000 中文字符。\n\nEvents are:\n" + event_text
+            )
         )
-    )
+    finally:
+        close_runner = getattr(summarizer_runner, "close", None)
+        if callable(close_runner):
+            await close_runner()
     summary_text = str(summary_response).strip()
     if not summary_text:
         return False
