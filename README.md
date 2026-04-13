@@ -11,11 +11,11 @@
 ## 模型生态与基础设施
 
 <p align="center">
-  <img src="demo/volcengine-color.png" height="56" alt="Volcengine" />
+  <img src="demo/volcengine-color.png" height="56" alt="Volcengine" style="vertical-align: middle;" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="demo/libtv-logo.svg" height="30" alt="LibTV" />
+  <img src="demo/libtv-logo.svg" height="38" alt="LibTV" style="vertical-align: middle;" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="https://z-cdn.chatglm.cn/z-ai/static/logo.svg" height="42" alt="Z.ai" />
+  <img src="https://z-cdn.chatglm.cn/z-ai/static/logo.svg" height="42" alt="Z.ai" style="vertical-align: middle;" />
 </p>
 
 PureVis 的设计目标不是绑定单一模型，而是把 **文本策划、视觉生成、视频生成、分析质检** 解耦为可替换的能力层。当前项目默认以 **火山引擎方舟** 作为生产级多模态底座，承接 Doubao 系列文本模型、Seedream 生图与 Seedance 生视频链路；同时也支持接入 **LibTV** 作为媒体生成提供方，覆盖 `lib_nano_2`、`lib_nano_pro` 两个生图模型，以及 `seedance_2_0`、`seedance_2_0_fast`、`kling_o3` 三个生视频模型；此外也预留并支持接入 **Z.ai** 作为文本推理与通用创作模型来源，用于更灵活的 Agent 编排与工具模型切换。
