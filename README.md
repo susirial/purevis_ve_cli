@@ -700,43 +700,74 @@ LIBTV_ACCESS_KEY=<your_libtv_access_key>
 - `generate_prop_three_view_sheet`
 - `generate_storyboard_grid_sheet`
 
-## `.env` 示例
+## `.env` 推荐配置
 
-以下示例表示“Agent 与普通文本工具可切换，图片分析固定为 doubao，媒体生成显式绑定 LibTV”的推荐配置方式。请使用您自己的密钥占位值，不要将真实 `API Key`、`AK`、`SK` 写入文档或仓库：
+以下示例表示“Agent 层统一走火山引擎方舟，图片分析固定为 doubao，媒体生成显式走 `volcengine_ark` / `libtv` 分层路由”的推荐配置方式。请使用您自己的密钥占位值，不要将真实 `API Key`、`AK`、`SK` 写入文档或仓库。
+
+> 注意：`.env` 中的 `API_BASE` 要直接写成 URL，例如 `https://ark.cn-beijing.volces.com/api/v3/`，不要添加反引号、不要前后留空格，否则可能导致配置解析异常；若请求报 `AuthenticationError`，通常还需要进一步检查 `API Key` 是否缺失、无效或与目标服务不匹配。
 
 ```bash
+# ------------------------------------------------------------------------------
+# API Keys 配置
+# ------------------------------------------------------------------------------
+
+# VeADK Agent 显式模型配置（用于对话、调度、写剧本、总结等 Agent 层能力）
+# 以下为所有 Agent 的全局默认值。各 Agent 会在构造时显式读取这些配置。
+# 如果不做细分，推荐只维护这一组全局变量。
 MODEL_AGENT_PROVIDER=openai
 MODEL_AGENT_NAME=doubao-seed-2-0-pro-260215
 MODEL_AGENT_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
-MODEL_AGENT_API_KEY=<your_ark_api_key>
-MODEL_AGENT_EXTRA_CONFIG=
+MODEL_AGENT_API_KEY=<your_volcengine_api_key>
+ZAI_API_KEY=<your_zai_api_key>
 
-# 普通文本工具默认继承 MODEL_AGENT_*，只有在需要单独切换时才配置
-# MODEL_TOOL_TEXT_PROVIDER=openai
-# MODEL_TOOL_TEXT_NAME=glm-5.1
-# MODEL_TOOL_TEXT_API_BASE=https://api.z.ai/api/paas/v4/
-# MODEL_TOOL_TEXT_API_KEY=<your_zai_api_key>
+# 按工具分层的 temperature 配置（推荐）
+# 创意设计偏高、结构化生成中等、图片分析偏低
+MODEL_TOOL_TEXT_TEMPERATURE_DEFAULT=0.45
+MODEL_TOOL_DESIGN_CHARACTER_TEMPERATURE=0.75
+MODEL_TOOL_DESIGN_SCENE_TEMPERATURE=0.65
+MODEL_TOOL_DESIGN_PROP_TEMPERATURE=0.60
+MODEL_TOOL_BREAKDOWN_STORYBOARD_TEMPERATURE=0.40
+MODEL_TOOL_GENERATE_KEYFRAME_PROMPTS_TEMPERATURE=0.45
+MODEL_TOOL_GENERATE_VIDEO_PROMPTS_TEMPERATURE=0.45
+MODEL_TOOL_VISION_ANALYZER_TEMPERATURE=0.15
 
+# 图片分析工具模型（固定视觉分析能力）
+# 推荐保持为 doubao-seed-2-0-pro-260215，不参与系统主文本模型切换。
 MODEL_TOOL_VISION_ANALYZER_PROVIDER=openai
 MODEL_TOOL_VISION_ANALYZER_NAME=doubao-seed-2-0-pro-260215
 MODEL_TOOL_VISION_ANALYZER_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
-MODEL_TOOL_VISION_ANALYZER_API_KEY=<your_ark_api_key>
+MODEL_TOOL_VISION_ANALYZER_API_KEY=<your_volcengine_api_key>
 
+# Volcengine ARK 媒体生成专用凭证（生图 / 生视频）
+# 推荐显式配置，避免当 MODEL_AGENT_* 切到其他供应商时影响媒体生成。
 VOLCENGINE_ARK_API_BASE=https://ark.cn-beijing.volces.com/api/v3/
-VOLCENGINE_ARK_API_KEY=<your_ark_api_key>
+VOLCENGINE_ARK_API_KEY=<your_volcengine_api_key>
 
-LOGGING_LEVEL=ERROR
+# ------------------------------------------------------------------------------
+# 系统运行配置
+# ------------------------------------------------------------------------------
 
-PUREVIS_API_KEY=
-LIBTV_ACCESS_KEY=<your_libtv_access_key>
+# 【可选】显式指定媒体提供方
+# 可选值: auto | purevis | libtv | volcengine_ark | vidu | kling
+# 默认 volcengine_ark
+# MEDIA_PROVIDER=libtv
+MEDIA_PROVIDER=volcengine_ark
 
-MEDIA_PROVIDER=auto
-MEDIA_IMAGE_PROVIDER=libtv
+# 【可选】按能力单独指定默认媒体提供方
+MEDIA_IMAGE_PROVIDER=volcengine_ark
 MEDIA_VIDEO_PROVIDER=libtv
-MEDIA_IMAGE_DEFAULT_MODEL=lib_nano_2
-MEDIA_VIDEO_DEFAULT_MODEL=seedance_2_0_fast
+
+# 【可选】按能力单独指定默认模型
+# 仅在目标 provider 支持显式模型切换时生效
+MEDIA_VIDEO_DEFAULT_MODEL=kling_o3
+
+# LibTV API Key
+# 如需显式使用，请将下方 MEDIA_PROVIDER 设置为 libtv。
+LIBTV_ACCESS_KEY=<your_libtv_api_key>
 ```
 
+> 如果后续需要让普通文本工具单独切到 `Z.ai` 或其他兼容提供方，可继续补充 `MODEL_TOOL_TEXT_PROVIDER`、`MODEL_TOOL_TEXT_NAME`、`MODEL_TOOL_TEXT_API_BASE`、`MODEL_TOOL_TEXT_API_KEY`；未配置时，普通文本工具默认继承 `MODEL_AGENT_*`。
+>
 > 火山引擎内置工具（如 `web_search`）所需的 `AK/SK` 当前在本项目中仍属于预留配置，默认不需要填写；只有未来接入相关内置工具时才需要补充。
 
 ## Agent 显式模型配置策略
