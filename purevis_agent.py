@@ -1,8 +1,14 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 # 1. 必须在导入 veadk 之前加载环境变量
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
+# 抑制 LiteLLM LoggingWorker 首轮冷启动超时的 ERROR 日志（propagate 到 root logger 的问题）
+_litellm_log_level = getattr(logging, os.environ.get("LITELLM_LOG", "CRITICAL").upper(), logging.CRITICAL)
+for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_logger_name).setLevel(_litellm_log_level)
 
 import asyncio
 from veadk import Runner
@@ -141,7 +147,7 @@ async def main():
                     user_id="user_01",
                     session_id="session_01",
                     new_message=user_message,
-                    run_config=RunConfig(max_llm_calls=30, streaming_mode=StreamingMode.SSE)
+                    run_config=RunConfig(max_llm_calls=50, streaming_mode=StreamingMode.SSE)
                 ):
                     # 检查并发言人切换
                     author = getattr(event, "author", None)

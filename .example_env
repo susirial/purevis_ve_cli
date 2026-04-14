@@ -84,6 +84,9 @@ PUREVIS_API_KEY=
 # 如需显式使用，请将下方 MEDIA_PROVIDER 设置为 libtv。
 LIBTV_ACCESS_KEY=
 
+# ZAI（Z.AI）API Key
+ZAI_API_KEY=
+
 # ------------------------------------------------------------------------------
 # 系统运行配置
 # ------------------------------------------------------------------------------
@@ -92,9 +95,10 @@ LIBTV_ACCESS_KEY=
 LOGGING_LEVEL=ERROR
 LITELLM_LOG=CRITICAL
 
-# 【可选】显式指定媒体提供方
+# 【可选】显式指定媒体提供方（默认值兜底层）
 # 可选值: auto | purevis | libtv | volcengine_ark | vidu | kling
 # 默认 volcengine_ark
+# 注：Agent 运行时可通过工具参数 model="xxx" 动态切换 provider，此处仅设定无显式指定时的默认路由。
 MEDIA_PROVIDER=volcengine_ark
 
 # 【可选】按能力单独指定默认媒体提供方
