@@ -315,16 +315,162 @@ Useful LibTV models:
 
 ## Case Study
 
-The assets under `demo/完整演示/` show a complete example that starts from a natural-language request for a 15-second promotional video and ends with:
+The assets under `demo/完整演示/` document a complete English-readable production flow for a 15-second promotional video. The project starts with a plain-language request and ends with a generated final video, while keeping every intermediate artifact reusable.
 
-1. script planning,
-2. multiple directorial style options,
-3. character design,
-4. reference-image generation,
-5. video-prompt generation, and
-6. final video synthesis.
+### Goal
 
-This is the core value of PureVis: it productizes the creative workflow, not just a single image or video API call.
+The target project is a 15-second promo for the short-drama creation agent itself. The desired output is cinematic, layered, and clearly stylized, rather than a raw model demo.
+
+### One-Prompt-To-Video Flow
+
+```text
+1. Ask for a 15-second promotional video with a cinematic feel.
+2. Review multiple directorial style options and choose one.
+3. Generate the official character design prompt and reference sheet.
+4. Reuse the saved storyboard file and ask the visual director for video prompts.
+5. Confirm generation parameters.
+6. Render the final video.
+```
+
+### 1. Start With A Creative Brief
+
+The user begins with a natural-language request instead of directly writing a low-level video prompt. This gives the system enough context to reason about style, pacing, camera language, and production intent.
+
+<p align="center">
+  <img src="demo/完整演示/1-1-用户输入需求.png" width="96%" alt="User prompt for a 15-second promo video" />
+</p>
+
+### 2. Let The Orchestrator Route The Work
+
+The `orchestrator` identifies the task as a planning and promo-script request, then hands the work to `director`. This removes the need for the user to manually choose which agent should act first.
+
+<p align="center">
+  <img src="demo/完整演示/1-2-orchestrator调用导演.png" width="96%" alt="Orchestrator routes the task to the director agent" />
+</p>
+
+### 3. Generate Script And Style Options
+
+The `director` produces a promo script, breaks it into storyboard-ready structure, and saves multiple style directions for comparison. In the demo, the system creates five distinct directorial variants and stores them under the project folder for later review.
+
+<p align="center">
+  <img src="demo/完整演示/1-3-导演智能体给出文案设计.png" width="96%" alt="Director produces multiple promo script options" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-4-给出分镜方案.png" width="96%" alt="Storyboard breakdown produced from the selected script" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-5-按照要求给出5中策划方案.png" width="62%" alt="Saved script and storyboard variants" />
+</p>
+
+In this example, the selected direction is the Zhang Yimou-inspired Chinese aesthetic, which emphasizes:
+
+- high-contrast red, gold, and ink-black color design,
+- strong depth and cinematic composition,
+- visible silk, paper, palace, and ink motifs,
+- a ceremonial tone suitable for a product promo.
+
+<p align="center">
+  <img src="demo/完整演示/1-6-选择国风设计.png" width="70%" alt="Selected Chinese-aesthetic style direction" />
+</p>
+
+### 4. Turn Style Into Character Design
+
+After the visual direction is chosen, the user asks `director` to generate a concrete character design. The result is not just prose: it includes reusable design language and image-generation prompts that can feed downstream tools.
+
+<p align="center">
+  <img src="demo/完整演示/1-7-开始角色设计.png" width="96%" alt="Character design request handled by the director" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-8-角色设计文案.png" width="54%" alt="Saved character design document" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-8-2-角色设计方案.png" width="96%" alt="Character design content and generation prompt" />
+</p>
+
+### 5. Generate An Official Reference Image
+
+Once the character brief exists, the user only needs to request an official reference image. The system converts the saved design into a normalized reference-image prompt and routes it to the configured media backend. In the demo, the request is executed through `LibTV` with model `lib_nano_2`.
+
+<p align="center">
+  <img src="demo/完整演示/1-9-用户要求给出角色参考图.png" width="62%" alt="User asks for the official reference image" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-10-调用工具生图.png" width="96%" alt="Tool call for reference-image generation" />
+</p>
+
+<p align="center">
+  <img src="demo/完整演示/1-11-角色参考图.png" width="62%" alt="Generated official character reference image" />
+</p>
+
+The generated asset is production-oriented: it contains costume details, material callouts, and design consistency hints, not just a portrait.
+
+If the project needs stricter subject consistency, the workflow can continue into multi-view generation:
+
+<p align="center">
+  <img src="demo/完整演示/1-12-角色多视图.png" width="96%" alt="Multi-view character consistency sheet" />
+</p>
+
+### 6. Reuse Existing Storyboards To Build Video Prompts
+
+Once the storyboard file already exists on disk, the user does not need to restate the scene logic. They can simply point the system at the saved file and ask the `visual_director` to review it and produce video-generation prompts.
+
+<p align="center">
+  <img src="demo/完整演示/1-13-视觉导演确认图生视频参数.png" width="96%" alt="Visual director reviews storyboard and prepares video parameters" />
+</p>
+
+The visual director returns a human-readable confirmation card that typically includes:
+
+- shot language such as close-up, medium shot, wide shot, push-in, pan, or top-down framing,
+- segment timing such as `S01-S06`,
+- input references such as character sheet or multi-view sheet,
+- generation parameters such as `duration`, `aspect_ratio`, `model`, and audio mode,
+- optional narration and ambient sound suggestions.
+
+<p align="center">
+  <img src="demo/完整演示/1-13-2-视觉导演确认参数说明.png" width="96%" alt="Video generation confirmation card" />
+</p>
+
+### 7. Confirm Parameters And Render The Final Video
+
+After confirmation, the system calls `generate_video` with the routed provider and the prepared production assets. In the example flow, the saved multi-view character asset becomes a direct upstream input for final rendering.
+
+<p align="center">
+  <img src="demo/完整演示/1-14-调用工具生成视频.png" width="96%" alt="Final video generation tool call" />
+</p>
+
+Preview:
+
+<table>
+  <tr>
+    <td width="220" valign="top">
+      <a href="demo/完整演示/1-15-生成的视频.mp4">
+        <img src="demo/完整演示/1-11-角色参考图.png" width="220" alt="15-second promo cover" />
+      </a>
+    </td>
+    <td valign="top">
+      <strong>Project:</strong> short-drama agent promo<br/>
+      <strong>Style:</strong> Zhang Yimou-inspired Chinese aesthetic<br/>
+      <strong>Duration:</strong> 15 seconds<br/>
+      <strong>Value:</strong> one request becomes script, character assets, video prompts, and final video<br/>
+      <strong>Open:</strong> <a href="demo/完整演示/1-15-生成的视频.mp4">local MP4</a>
+    </td>
+  </tr>
+</table>
+
+### Why This Matters
+
+This case study shows that PureVis is not only capable of calling an image model or a video model. Its real value is workflow productization:
+
+- users express intent in natural language instead of manually decomposing the pipeline,
+- the `orchestrator` automatically chooses the right specialist agent,
+- intermediate assets are saved and reused instead of being discarded,
+- storyboard, character, and video steps remain connected end to end,
+- provider choice can change without changing the creative operating model.
 
 ## Related Docs
 
