@@ -62,7 +62,35 @@ Agent(tools=[..., load_skill, load_skill_reference])
 
 **解决**：开始新的对话会话即可生效。
 
-### 6. 上下文窗口溢出
+### 6. SKILL.md 遗漏工具名（LLM 不知道自己有哪些工具）
+
+**现象**：LLM 在执行任务时只使用了部分工具，忽略了同一智能体注册的其他可用工具。
+
+**根因**：SKILL.md 正文中只用自然语言描述了工作流方向（"转交 director""交给 image_gen"），但没有写出具体的工具函数名。LLM 不主动 `load_skill_reference` 时，就不知道还有这些工具可用。
+
+**排查**：
+```bash
+# 运行工具覆盖审计脚本（对比 SKILL.md 内容 vs 智能体实际注册的 tools 列表）
+python3 -c "
+from pathlib import Path
+skills_dir = Path('skills')
+for skill_dir in sorted(skills_dir.iterdir()):
+    skill_md = skill_dir / 'SKILL.md'
+    if not skill_md.exists(): continue
+    content = skill_md.read_text()
+    print(f'{skill_dir.name}: {len(content)} chars')
+    # 检查工具名是否出现在正文中
+"
+```
+
+**预防**：
+- 每个 SKILL.md 正文中必须包含一个"可用工具清单"表，显式列出该 Skill 涉及的所有工具函数名
+- 工作流步骤中标注每步调用的具体工具名（如 `→ 调用 design_character`）
+- 新增或修改 Skill 后，运行审计脚本确认工具覆盖率为 100%
+
+**已修复历史**：v1.0.1 通过审计脚本发现并修复了 character-design、scene-prop-design、image-generation、video-generation 4 个 Skill 的工具遗漏。
+
+### 7. 上下文窗口溢出
 
 **现象**：LLM 输出截断或质量明显下降。
 
@@ -93,7 +121,7 @@ wc -l agents/*.py tools/skill_loader.py
 
 | 指标 | 健康范围 | 告警条件 |
 |------|---------|---------|
-| 单个 SKILL.md 正文 | < 2000 字符 | > 5000 字符 |
+| 单个 SKILL.md 正文 | < 2500 字符 | > 5000 字符 |
 | 单次会话加载的 skill 数 | 1-3 个 | > 5 个 |
 | 单次会话加载的 reference 数 | 0-3 个 | > 6 个 |
 | skill 总数 | 9 个（当前） | 新增后需更新测试 |

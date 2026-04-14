@@ -1,5 +1,47 @@
 # Skills 系统变更日志
 
+## v1.0.1 — 2026-04-14 · Skill 工具覆盖审计与修复
+
+### 问题背景
+
+通过自动化审计脚本对 9 个 Skill 进行工具覆盖检查，发现 4 个 Skill 的 SKILL.md 正文中存在工具名遗漏：LLM 如果不主动 `load_skill_reference`，就不知道自己还有这些工具可用。
+
+### 修复
+
+#### character-design/SKILL.md
+- 新增"可用工具清单"表，显式列出 `design_character`（director）、`generate_reference_image`（image_gen）、`get_project_state`
+- 工作流步骤中标注每步调用的具体工具名
+
+#### scene-prop-design/SKILL.md
+- 新增"可用工具清单"表，显式列出 `design_scene`、`design_prop`、`generate_prop_three_view_sheet`、`generate_storyboard_grid_sheet`、`generate_image`
+- 场景设计流程和道具路由规则中标注具体工具名
+
+#### image-generation/SKILL.md（上轮已修复）
+- 新增完整"任务 → 工具"映射表，覆盖全部 7 个生图工具
+- 新增"工具选择优先级规则"
+
+#### video-generation/SKILL.md
+- 新增完整 10 工具清单表（`generate_video`、`wait_for_task`、`query_task_status`、`sleep_seconds`、`download_and_save_media`、`read_text_file`、`get_project_state`、`get_prompt_style_context_state`、`describe_media_capabilities`、`suggest_media_route`）
+- 新增"标准执行流程"6 步伪代码
+
+### 未受影响（审计通过）
+- project-management（10 个工具全覆盖）
+- style-configuration（8 个工具全覆盖）
+- storyboard-direction（5 个工具全覆盖）
+- media-routing（2 个工具全覆盖）
+- vision-analysis（5 个工具全覆盖）
+
+### Skill 规模变化
+
+| Skill | 旧大小 | 新大小 |
+|-------|--------|--------|
+| character-design | 949 字符 (~237 tokens) | 1381 字符 (~345 tokens) |
+| scene-prop-design | 829 字符 (~207 tokens) | 1212 字符 (~303 tokens) |
+| image-generation | 1182 字符 (~295 tokens) | 2378 字符 (~594 tokens) |
+| video-generation | 1005 字符 (~251 tokens) | 1965 字符 (~491 tokens) |
+
+---
+
 ## v1.0.0 — 2026-04-14 · 渐进式披露技能系统初始版本
 
 ### 新增

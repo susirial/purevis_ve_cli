@@ -68,7 +68,7 @@ PureVis 的设计目标不是绑定单一模型，而是把 **文本策划、视
    - 以 `/` 开头的本地管理命令，交给 `handle_cli_command(...)` 处理；
    - 普通自然语言请求，封装为 `Content(role="user", parts=[Part(text=...)])` 后送入总控智能体。
 4. **多智能体调度层**：总控智能体根据任务阶段与工具边界，将任务转交给 `director`、`visual_director`、`image_gen`、`video_gen`、`vision_analyzer`。
-5. **技能层（Progressive Disclosure）**：采用三层渐进式披露架构（L1 元数据 → L2 指令 → L3 参考文档），将领域知识从智能体 instruction 中抽离为 9 个独立 Skill 文件，由 `skill_loader` 按需加载而非一次性注入，首轮上下文从约 17500 tokens 降至约 4400 tokens（-75%）。详见 `docs/skills-architecture.md`。
+5. **技能层（Progressive Disclosure）**：采用三层渐进式披露架构（L1 元数据 → L2 指令 → L3 参考文档），将领域知识从智能体 instruction 中抽离为 9 个独立 Skill 文件，由 `skill_loader` 按需加载而非一次性注入，首轮上下文从约 17500 tokens 降至约 4400 tokens（-75%）。每个 Skill 正文均包含完整的"可用工具清单"表，确保 LLM 一次加载即可建立工具认知。详见 `docs/skills-architecture.md`。
 6. **工具与状态层**：通过 `state_tools`、`style_tools`、`file_io`、`purevis`、`media_providers` 完成项目状态、风格配置、文件持久化、媒体生成与任务轮询。
 
 ## 核心执行流程
@@ -294,7 +294,8 @@ skills/                              # 渐进式披露技能层（9 个 Skill + 
 └── media-routing/SKILL.md
 docs/
 ├── skills-architecture.md           # 技能架构详细文档
-└── skills-changelog.md              # 技能系统变更日志
+├── skills-changelog.md              # 技能系统变更日志
+└── skills-troubleshooting.md        # 技能系统问题排查指南
 ```
 
 ## 基础生图与生视频能力展示
@@ -932,4 +933,4 @@ MEDIA_VIDEO_DEFAULT_MODEL=kling_o3
   系统将领域知识从智能体的 instruction 中抽离为 `skills/` 目录下的独立 Skill 文件，由 `skill_loader` 按需加载。智能体在识别到任务类型后，调用 `load_skill(skill_name)` 获取规则，无需在首轮就注入全量知识。详见 `docs/skills-architecture.md`。
 
 - **目前有哪些已知限制？**  
-  当前入口程序使用固定的 `user_id` 和 `session_id`，更适合本地单用户连续创作；`video_gen` 的 `input_images` 最多支持 `2` 张；剧集编号必须使用 `ep01`、`ep02` 这类格式；`breakdown_storyboard`、`generate_keyframe_prompts`、`generate_video_prompts` 需要实质性的剧本或分镜内容，传入空结构可能触发 `INTENT_REJECTED` 或生成失败。技能系统方面：Skill 加载需要额外的工具调用轮次；LLM 在极少数情况下可能忘记加载 skill（已通过 instruction 中的触发映射表缓解）；各 Skill 目前独立管理，尚不支持版本号和 A/B 测试。
+  当前入口程序使用固定的 `user_id` 和 `session_id`，更适合本地单用户连续创作；`video_gen` 的 `input_images` 最多支持 `2` 张；剧集编号必须使用 `ep01`、`ep02` 这类格式；`breakdown_storyboard`、`generate_keyframe_prompts`、`generate_video_prompts` 需要实质性的剧本或分镜内容，传入空结构可能触发 `INTENT_REJECTED` 或生成失败。技能系统方面：Skill 加载需要额外的工具调用轮次；LLM 在极少数情况下可能忘记加载 skill（已通过 instruction 中的触发映射表缓解）；各 Skill 目前独立管理，尚不支持版本号和 A/B 测试。每个 SKILL.md 正文中必须包含完整的"可用工具清单"表，以确保 LLM 一次加载即可获得完整的工具认知（v1.0.1 已通过审计修复 4 个 Skill 的工具遗漏，详见 `docs/skills-changelog.md`）。
