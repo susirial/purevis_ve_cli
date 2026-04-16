@@ -133,7 +133,10 @@ class PureVisMediaProvider(BaseMediaProvider):
         reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload: Dict[str, Any] = {"prompt": prompt, "entity_type": entity_type}
         if aspect_ratio:
             payload["aspect_ratio"] = aspect_ratio
@@ -141,15 +144,21 @@ class PureVisMediaProvider(BaseMediaProvider):
             payload["input_images"] = _process_input_images(input_images)
         return _request_purevis_api("tools/generate-reference-image", payload)
 
-    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload = {"prompt": prompt, "character_name": character_name, "ref_image": _encode_image_to_base64(ref_image)}
         return _request_purevis_api("tools/generate-multi-view", payload)
 
-    def generate_expression_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_expression_sheet(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload = {"prompt": prompt, "character_name": character_name, "ref_image": _encode_image_to_base64(ref_image)}
         return _request_purevis_api("tools/generate-expression-sheet", payload)
 
-    def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("PureVis provider 暂不支持通过 model 参数显式切换底层模型。")
         payload = {"prompt": prompt, "character_name": character_name, "ref_image": _encode_image_to_base64(ref_image)}
         return _request_purevis_api("tools/generate-pose-sheet", payload)
 

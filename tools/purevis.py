@@ -31,6 +31,7 @@ def _raise_route_error(route_result: dict) -> None:
     provider = error.get("provider")
     requested_model = error.get("requested_model")
     requires_env = error.get("requires_env") or []
+    available_models = error.get("available_models") or []
 
     details = []
     if code:
@@ -41,6 +42,8 @@ def _raise_route_error(route_result: dict) -> None:
         details.append(f"requested_model={requested_model}")
     if requires_env:
         details.append("requires_env=" + ",".join(requires_env))
+    if available_models:
+        details.append("available_models=" + ",".join(available_models))
 
     if details:
         message = f"{message} ({'; '.join(details)})"
@@ -367,7 +370,7 @@ def generate_image(prompt: str, aspect_ratio: str = "", input_images: list = Non
         prompt: 提示词描述。
         aspect_ratio: 画幅比，例如 "16:9"、"9:16"、"1:1" 等。
         input_images: 【重要】如果要进行图生图（如参考已有的角色/场景图片），请将该图片的本地路径（如 "output/projects/.../xxx.jpg"）作为一个字符串放入此列表中传入（例如：["output/.../img.jpg"]）。工具会自动读取并转为 Base64。如果不使用图生图，留空即可。
-        model: 可选，显式指定底层图片模型。不同 provider 仅接受自身支持的模型名。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
     """
     intent_tags = ["explicit_model_control"] if model else []
     provider, route_result = _resolve_provider_for_execution(
@@ -389,6 +392,7 @@ def generate_reference_image(
     reference_variant: str = "pure_character",
     aspect_ratio: str = "",
     input_images: list = None,
+    model: str = "",
 ) -> dict:
     """
     Submit a reference sheet generation task with composition constraints.
@@ -399,11 +403,17 @@ def generate_reference_image(
         reference_variant: 角色参考图模式，支持 pure_character | full_character | mounted_character
         aspect_ratio: 画幅比
         input_images: 如果需要基于已有图片生成参考图，可传入本地路径列表（同 generate_image）。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
     """
-    provider, _ = _resolve_provider_for_execution(
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
         capability="generate_reference_image",
-        intent_tags=["standardized_layout"],
+        requested_model=model,
+        intent_tags=intent_tags,
     )
+    effective_model = model or route_result.get("model", "") or ""
     normalized_variant = _normalize_reference_variant(reference_variant)
     target_aspect_ratio = aspect_ratio
     if (entity_type or "").strip().lower() == "character" and not target_aspect_ratio:
@@ -414,37 +424,71 @@ def generate_reference_image(
         reference_variant=normalized_variant,
         aspect_ratio=target_aspect_ratio,
         input_images=input_images,
+        model=effective_model,
     )
 
-def generate_multi_view(prompt: str, character_name: str, ref_image: str) -> dict:
+def generate_multi_view(prompt: str, character_name: str, ref_image: str, model: str = "") -> dict:
     """
     Submit a character multi-view turnaround sheet generation task.
-    """
-    provider, _ = _resolve_provider_for_execution(
-        capability="generate_multi_view",
-        intent_tags=["standardized_layout"],
-    )
-    return provider.generate_multi_view(prompt=prompt, character_name=character_name, ref_image=ref_image)
 
-def generate_expression_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
+    Args:
+        prompt: 提示词描述。
+        character_name: 角色名称。
+        ref_image: 参考图的本地路径。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
+    """
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
+        capability="generate_multi_view",
+        requested_model=model,
+        intent_tags=intent_tags,
+    )
+    effective_model = model or route_result.get("model", "") or ""
+    return provider.generate_multi_view(prompt=prompt, character_name=character_name, ref_image=ref_image, model=effective_model)
+
+def generate_expression_sheet(prompt: str, character_name: str, ref_image: str, model: str = "") -> dict:
     """
     Submit a character expression sheet generation task.
-    """
-    provider, _ = _resolve_provider_for_execution(
-        capability="generate_expression_sheet",
-        intent_tags=["standardized_layout"],
-    )
-    return provider.generate_expression_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
 
-def generate_pose_sheet(prompt: str, character_name: str, ref_image: str) -> dict:
+    Args:
+        prompt: 提示词描述。
+        character_name: 角色名称。
+        ref_image: 参考图的本地路径。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
+    """
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
+        capability="generate_expression_sheet",
+        requested_model=model,
+        intent_tags=intent_tags,
+    )
+    effective_model = model or route_result.get("model", "") or ""
+    return provider.generate_expression_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image, model=effective_model)
+
+def generate_pose_sheet(prompt: str, character_name: str, ref_image: str, model: str = "") -> dict:
     """
     Submit a character pose sheet generation task.
+
+    Args:
+        prompt: 提示词描述。
+        character_name: 角色名称。
+        ref_image: 参考图的本地路径。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
     """
-    provider, _ = _resolve_provider_for_execution(
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
         capability="generate_pose_sheet",
-        intent_tags=["standardized_layout"],
+        requested_model=model,
+        intent_tags=intent_tags,
     )
-    return provider.generate_pose_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image)
+    effective_model = model or route_result.get("model", "") or ""
+    return provider.generate_pose_sheet(prompt=prompt, character_name=character_name, ref_image=ref_image, model=effective_model)
 
 
 def generate_prop_three_view_sheet(
@@ -452,6 +496,7 @@ def generate_prop_three_view_sheet(
     prop_name: str = "",
     input_images: list = None,
     aspect_ratio: str = "16:9",
+    model: str = "",
 ) -> dict:
     """
     Submit a single-canvas industrial three-view prop sheet generation task.
@@ -461,16 +506,23 @@ def generate_prop_three_view_sheet(
         prop_name: 道具名称，用于补充版式说明。
         input_images: 如果需要参考现有道具图片，可传入本地路径列表。
         aspect_ratio: 画幅比，默认 16:9 横向以容纳三视图排版。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
     """
-    provider, _ = _resolve_provider_for_execution(
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
         capability="generate_prop_three_view_sheet",
-        intent_tags=["standardized_layout"],
+        requested_model=model,
+        intent_tags=intent_tags,
     )
+    effective_model = model or route_result.get("model", "") or ""
     return provider.generate_prop_three_view_sheet(
         prompt=prompt,
         prop_name=prop_name,
         input_images=input_images,
         aspect_ratio=aspect_ratio,
+        model=effective_model,
     )
 
 
@@ -479,6 +531,7 @@ def generate_storyboard_grid_sheet(
     panel_count: int = 16,
     aspect_ratio: str = "1:1",
     input_images: list = None,
+    model: str = "",
 ) -> dict:
     """
     Submit a single-canvas storyboard contact-sheet generation task.
@@ -488,16 +541,23 @@ def generate_storyboard_grid_sheet(
         panel_count: 宫格数，当前推荐 16 或 25，也兼容少量常见多格布局。
         aspect_ratio: 画幅比，默认 1:1 以适配 4x4 / 5x5 网格。
         input_images: 如果需要参考已有角色或场景图片，可传入本地路径列表。
+        model: 可选，显式指定底层图片模型。合法的图片模型名（区分大小写）：lib_nano_2 | lib_nano_pro。不传则使用系统默认路由。传入不合法的值会返回错误及合法值列表。
     """
-    provider, _ = _resolve_provider_for_execution(
+    intent_tags = ["standardized_layout"]
+    if model:
+        intent_tags.append("explicit_model_control")
+    provider, route_result = _resolve_provider_for_execution(
         capability="generate_storyboard_grid_sheet",
-        intent_tags=["standardized_layout"],
+        requested_model=model,
+        intent_tags=intent_tags,
     )
+    effective_model = model or route_result.get("model", "") or ""
     return provider.generate_storyboard_grid_sheet(
         prompt=prompt,
         panel_count=panel_count,
         aspect_ratio=aspect_ratio,
         input_images=input_images,
+        model=effective_model,
     )
 
 def generate_video(

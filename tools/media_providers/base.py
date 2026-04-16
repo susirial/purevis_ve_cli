@@ -101,16 +101,17 @@ class BaseMediaProvider(ABC):
         reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持参考图生成。")
 
-    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持多视图生成。")
 
-    def generate_expression_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_expression_sheet(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持表情表生成。")
 
-    def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_pose_sheet(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持姿势表生成。")
 
     def generate_prop_three_view_sheet(
@@ -119,6 +120,7 @@ class BaseMediaProvider(ABC):
         prop_name: str = "",
         input_images: Optional[List[str]] = None,
         aspect_ratio: str = "16:9",
+        model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持道具三视图设定板生成。")
 
@@ -128,6 +130,7 @@ class BaseMediaProvider(ABC):
         panel_count: int = 16,
         aspect_ratio: str = "1:1",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         raise FeatureUnavailableError("当前媒体提供方不支持多宫格分镜拼板生成。")
 

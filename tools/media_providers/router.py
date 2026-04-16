@@ -35,6 +35,7 @@ def _build_error(
     requested_model: str = "",
     provider: str = "",
     requires_env: Optional[List[str]] = None,
+    available_models: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     return {
         "ok": False,
@@ -44,6 +45,7 @@ def _build_error(
             "requested_model": requested_model,
             "provider": provider,
             "requires_env": requires_env or [],
+            "available_models": available_models or [],
             "message": message,
         },
     }
@@ -122,11 +124,23 @@ def resolve_media_provider(
                 requires_env=unavailable_match.get("requires_env", []),
                 message="支持该模型的 provider 当前未完成配置，需先补齐环境变量。",
             )
+        all_models: List[str] = []
+        for p in providers:
+            cap = p.get("capabilities", {}).get(normalized_capability, {})
+            if not cap.get("enabled"):
+                continue
+            all_models.extend(cap.get("models", []))
+            fm = cap.get("fixed_model")
+            if fm:
+                all_models.append(fm)
+        all_models = sorted(set(all_models))
+        valid_list = " | ".join(all_models) if all_models else "（无可用模型）"
         return _build_error(
             "MODEL_NOT_SUPPORTED",
             capability=normalized_capability,
             requested_model=normalized_model,
-            message="当前系统中没有可用 provider 支持该能力与模型组合。",
+            available_models=all_models,
+            message="模型 '%s' 不可用。当前该能力支持的合法模型名：%s" % (normalized_model, valid_list),
         )
 
     env_provider_name = None

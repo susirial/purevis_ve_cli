@@ -340,6 +340,7 @@ class LibTVMediaProvider(BaseMediaProvider):
         reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         normalized_entity = (entity_type or "").strip().lower() or "character"
         normalized_variant = (reference_variant or "pure_character").strip().lower() or "pure_character"
@@ -350,14 +351,15 @@ class LibTVMediaProvider(BaseMediaProvider):
             + "\n要求：单主体、主体完整可见、构图清晰、背景干净，便于后续一致性生成。"
             + "\n目标实体类型：%s。参考图版本：%s。" % (normalized_entity, normalized_variant)
         )
+        effective_model = model or "lib_nano_2"
         return self.generate_image(
             prompt=full_prompt,
             aspect_ratio=normalized_ratio,
             input_images=input_images,
-            model="lib_nano_2",
+            model=effective_model,
         )
 
-    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str) -> Dict[str, Any]:
+    def generate_multi_view(self, prompt: str, character_name: str, ref_image: str, model: str = "") -> Dict[str, Any]:
         display_name = (character_name or "该角色").strip()
         full_prompt = (
             prompt.strip()
@@ -375,11 +377,12 @@ class LibTVMediaProvider(BaseMediaProvider):
             layout="headshot_plus_front_three_quarter_back",
             has_ref_image=bool(ref_image),
         )
+        effective_model = model or "lib_nano_2"
         return self.generate_image(
             prompt=full_prompt,
             aspect_ratio="16:9",
             input_images=[ref_image] if ref_image else None,
-            model="lib_nano_2",
+            model=effective_model,
         )
 
     def generate_prop_three_view_sheet(
@@ -388,6 +391,7 @@ class LibTVMediaProvider(BaseMediaProvider):
         prop_name: str = "",
         input_images: Optional[List[str]] = None,
         aspect_ratio: str = "16:9",
+        model: str = "",
     ) -> Dict[str, Any]:
         display_name = (prop_name or "该道具").strip()
         full_prompt = (
@@ -395,11 +399,12 @@ class LibTVMediaProvider(BaseMediaProvider):
             + "\n请生成 %s 的工业设计三视图设定板。" % display_name
             + "\n要求：单张图、纯净背景、正面/侧面/背面三视图均匀排布，不要文字、不要水印。"
         )
+        effective_model = model or "lib_nano_2"
         return self.generate_image(
             prompt=full_prompt,
             aspect_ratio=aspect_ratio or "16:9",
             input_images=input_images,
-            model="lib_nano_2",
+            model=effective_model,
         )
 
     def generate_storyboard_grid_sheet(
@@ -408,6 +413,7 @@ class LibTVMediaProvider(BaseMediaProvider):
         panel_count: int = 16,
         aspect_ratio: str = "1:1",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
         normalized_count = panel_count if panel_count in {4, 6, 8, 9, 12, 16, 25} else 16
         full_prompt = (
@@ -415,11 +421,12 @@ class LibTVMediaProvider(BaseMediaProvider):
             + "\n请生成单张故事板拼图，严格为 %d 宫格布局。" % normalized_count
             + "\n要求：整合在同一张画布内，每格是完整画面，不要文字、不要分镜编号、不要水印。"
         )
+        effective_model = model or "lib_nano_2"
         return self.generate_image(
             prompt=full_prompt,
             aspect_ratio=aspect_ratio or "1:1",
             input_images=input_images,
-            model="lib_nano_2",
+            model=effective_model,
         )
 
     def _build_submitted_response(
@@ -629,13 +636,19 @@ class LibTVMediaProvider(BaseMediaProvider):
     def _normalize_image_model(self, model: str) -> str:
         normalized = (model or "lib_nano_2").strip().lower()
         if normalized not in self.IMAGE_MODEL_LABELS:
-            raise FeatureUnavailableError("LibTV 不支持该生图模型：%s" % model)
+            valid = " | ".join(sorted(self.IMAGE_MODEL_LABELS.keys()))
+            raise FeatureUnavailableError(
+                "LibTV 不支持该生图模型：'%s'。合法模型名：%s" % (model, valid)
+            )
         return normalized
 
     def _normalize_video_model(self, model: str) -> str:
         normalized = (model or "seedance_2_0_fast").strip().lower()
         if normalized not in self.VIDEO_MODEL_LABELS:
-            raise FeatureUnavailableError("LibTV 不支持该生视频模型：%s" % model)
+            valid = " | ".join(sorted(self.VIDEO_MODEL_LABELS.keys()))
+            raise FeatureUnavailableError(
+                "LibTV 不支持该生视频模型：'%s'。合法模型名：%s" % (model, valid)
+            )
         return normalized
 
     def _normalize_image_ratio(self, aspect_ratio: str) -> str:

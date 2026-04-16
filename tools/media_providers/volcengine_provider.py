@@ -592,7 +592,10 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         reference_variant: str = "pure_character",
         aspect_ratio: str = "",
         input_images: Optional[List[str]] = None,
+        model: str = "",
     ) -> Dict[str, Any]:
+        if model:
+            raise FeatureUnavailableError("volcengine_ark provider 暂不支持通过 model 参数显式切换底层模型。")
         return local_generate_reference_image(
             prompt=prompt,
             entity_type=entity_type,
