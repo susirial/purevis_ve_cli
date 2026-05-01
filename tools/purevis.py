@@ -684,6 +684,7 @@ def _build_query_debug_payload(result: Any) -> Dict[str, Any]:
         "task_id": result.get("task_id"),
         "status": result.get("status"),
         "message": result.get("message"),
+        "error_category": result.get("error_category"),
         "result": {
             "session_id": result_payload.get("session_id"),
             "project_id": result_payload.get("project_id"),
@@ -700,19 +701,25 @@ def _build_query_debug_payload(result: Any) -> Dict[str, Any]:
             "new_url_count": len(result_payload.get("new_urls") or []),
             "url": result_payload.get("url"),
             "primary_url": result_payload.get("primary_url"),
+            "error_category": result_payload.get("error_category"),
+            "last_tool_call_summary": result_payload.get("last_tool_call_summary"),
         },
         "raw_error": _extract_query_error(raw_payload),
+        "raw_error_category": raw_payload.get("error_category"),
+        "recent_tool_error": raw_payload.get("recent_tool_error"),
         "raw_messages_tail": tail_messages,
     }
 
 
-def _should_retry_libtv_transient_failure(task_id: str, result: Any) -> bool:
+def _should_observe_libtv_transient_failure(task_id: str, result: Any) -> bool:
     if not isinstance(task_id, str) or not task_id.startswith("libtv:"):
         return False
     if not isinstance(result, dict):
         return False
     if result.get("status") != "failed":
         return False
+    if result.get("error_category") == "transient_tool_invocation_error":
+        return True
     raw_payload = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
     error_text = " ".join(
         [
@@ -722,6 +729,20 @@ def _should_retry_libtv_transient_failure(task_id: str, result: Any) -> bool:
         ]
     ).lower()
     return "params is required" in error_text
+
+
+def _build_transient_failure_signature(result: Any) -> str:
+    if not isinstance(result, dict):
+        return ""
+    raw_payload = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
+    result_payload = result.get("result", {}) if isinstance(result.get("result"), dict) else {}
+    parts = [
+        str(result.get("error_category") or ""),
+        str(result.get("message") or ""),
+        str(raw_payload.get("error") or ""),
+        str(result_payload.get("scanned_message_count") or ""),
+    ]
+    return "|".join(parts)
 
 def wait_for_task(task_id: str, timeout: Optional[int] = None, poll_interval: int = 10) -> dict:
     """
@@ -737,7 +758,8 @@ def wait_for_task(task_id: str, timeout: Optional[int] = None, poll_interval: in
     effective_timeout = _resolve_default_wait_timeout(task_id, timeout)
     start_time = time.time()
     poll_count = 0
-    transient_retry_used = False
+    transient_failure_signature = ""
+    transient_failure_deadline: Optional[float] = None
     while True:
         # 1. 查询状态
         result = query_task_status(task_id)
@@ -766,11 +788,20 @@ def wait_for_task(task_id: str, timeout: Optional[int] = None, poll_interval: in
         if status in ["failed", "timeout", "expired"]:
             debug_payload = _build_query_debug_payload(result)
             print("[WaitForTask] query_result_debug=\n%s" % json.dumps(debug_payload, ensure_ascii=False, indent=2))
-            if not transient_retry_used and _should_retry_libtv_transient_failure(task_id, result):
-                transient_retry_used = True
-                print("[WaitForTask] detected transient LibTV error 'params is required'; sleep 5s then re-check task status once.")
-                time.sleep(5)
-                continue
+            if _should_observe_libtv_transient_failure(task_id, result):
+                now = time.time()
+                current_signature = _build_transient_failure_signature(result)
+                if current_signature != transient_failure_signature or transient_failure_deadline is None:
+                    transient_failure_signature = current_signature
+                    transient_failure_deadline = min(start_time + effective_timeout, now + 25)
+                if now < transient_failure_deadline:
+                    remaining_seconds = max(0, int(transient_failure_deadline - now))
+                    print(
+                        "[WaitForTask] observe transient LibTV tool error for up to %s more seconds before final failure."
+                        % remaining_seconds
+                    )
+                    time.sleep(min(poll_interval, 5))
+                    continue
         
         # 2. 判断是否结束
         if status in ["completed", "succeeded", "failed", "timeout", "expired"]:

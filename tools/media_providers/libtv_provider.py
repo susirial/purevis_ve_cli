@@ -334,8 +334,10 @@ class LibTVMediaProvider(BaseMediaProvider):
         urls = self._extract_urls_from_messages(messages)
         media_type = "video" if capability == "generate_video" else "image"
         outputs = [self._build_output_item(url, media_type) for url in urls]
-        error_message = self._extract_error_message(messages)
-        status = self._normalize_status(messages, outputs)
+        error_details = self._extract_error_details(messages)
+        error_message = error_details.get("message", "")
+        error_category = error_details.get("category", "")
+        status = self._normalize_status(messages, outputs, error_category)
         max_seq = self._extract_max_seq(messages)
         primary_url = urls[-1] if urls else None
         self._debug_log(
@@ -351,12 +353,14 @@ class LibTVMediaProvider(BaseMediaProvider):
             scanned_message_count=scanned_message_count,
             scoped_message_count=len(messages),
             new_url_count=len(urls),
+            error_category=error_category,
             status=status,
         )
 
         result: Dict[str, Any] = {
             "task_id": task_id,
             "status": status,
+            "error_category": error_category or None,
             "result": {
                 "urls": urls,
                 "new_urls": urls,
@@ -374,8 +378,15 @@ class LibTVMediaProvider(BaseMediaProvider):
                 "max_seq": max_seq,
                 "scanned_message_count": scanned_message_count,
                 "scoped_message_count": len(messages),
+                "error_category": error_category or None,
+                "last_tool_call_summary": error_details.get("last_tool_call_summary"),
             },
-            "raw": {"messages": messages, "error": error_message},
+            "raw": {
+                "messages": messages,
+                "error": error_message,
+                "error_category": error_category or None,
+                "recent_tool_error": error_details.get("recent_tool_error"),
+            },
         }
         if error_message:
             result["message"] = error_message
@@ -927,11 +938,18 @@ class LibTVMediaProvider(BaseMediaProvider):
         for item in items:
             if not item:
                 continue
-            if item.startswith("http://") or item.startswith("https://"):
-                urls.append(item)
+            normalized_item = self._sanitize_reference_value(item)
+            if normalized_item.startswith("http://") or normalized_item.startswith("https://"):
+                urls.append(normalized_item)
                 continue
-            urls.append(self._upload_file(item))
+            urls.append(self._upload_file(normalized_item))
         return urls
+
+    def _sanitize_reference_value(self, value: str) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        return text.strip("`").strip("'").strip('"')
 
     def _upload_file(self, file_path: str) -> str:
         access_key = self._get_access_key()
@@ -1070,6 +1088,9 @@ class LibTVMediaProvider(BaseMediaProvider):
         return urls
 
     def _extract_error_message(self, messages: List[Dict[str, Any]]) -> str:
+        return self._extract_error_details(messages).get("message", "")
+
+    def _extract_error_details(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
         recent_messages = messages[-8:]
         for msg in reversed(recent_messages):
             if msg.get("role") != "tool":
@@ -1084,18 +1105,44 @@ class LibTVMediaProvider(BaseMediaProvider):
             if not isinstance(data, dict):
                 continue
             if data.get("error"):
-                return str(data.get("error"))
+                message = str(data.get("error"))
+                return {
+                    "message": message,
+                    "category": self._classify_error_message(message),
+                    "recent_tool_error": data,
+                    "last_tool_call_summary": self._extract_last_tool_call_summary(messages),
+                }
             if data.get("isError"):
                 text_parts: List[str] = []
                 for block in data.get("content") or []:
                     if isinstance(block, dict) and block.get("text"):
                         text_parts.append(str(block.get("text")))
+                message = ""
                 if text_parts:
-                    return " | ".join(text_parts)
-                return json.dumps(data, ensure_ascii=False)
-        return ""
+                    message = " | ".join(text_parts)
+                else:
+                    message = json.dumps(data, ensure_ascii=False)
+                return {
+                    "message": message,
+                    "category": self._classify_error_message(message),
+                    "recent_tool_error": data,
+                    "last_tool_call_summary": self._extract_last_tool_call_summary(messages),
+                }
+        return {"message": "", "category": "", "recent_tool_error": None, "last_tool_call_summary": None}
 
-    def _normalize_status(self, messages: List[Dict[str, Any]], outputs: List[Dict[str, Any]]) -> str:
+    def _classify_error_message(self, message: str) -> str:
+        normalized = str(message or "").strip().lower()
+        if not normalized:
+            return ""
+        if "params is required" in normalized:
+            return "transient_tool_invocation_error"
+        if "会话不存在或已失效" in normalized or "会话不存在或无效" in normalized:
+            return "session_missing"
+        if "网络请求失败" in normalized or "api 错误" in normalized:
+            return "network_or_transport_error"
+        return "hard_validation_error"
+
+    def _normalize_status(self, messages: List[Dict[str, Any]], outputs: List[Dict[str, Any]], error_category: str = "") -> str:
         if outputs:
             return "completed"
         last_error_index = self._find_last_error_message_index(messages)
@@ -1106,6 +1153,47 @@ class LibTVMediaProvider(BaseMediaProvider):
         if self._has_pending_tool_calls(messages):
             return "processing"
         return "failed"
+
+    def _extract_last_tool_call_summary(self, messages: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        for msg in reversed(messages):
+            if msg.get("role") != "assistant":
+                continue
+            tool_calls = msg.get("toolCalls") or []
+            if not tool_calls:
+                continue
+            tool_call = tool_calls[-1]
+            function = tool_call.get("function") or {}
+            arguments = function.get("arguments", "")
+            return {
+                "tool_name": function.get("name"),
+                "tool_call_id": tool_call.get("id"),
+                "arguments_summary": self._summarize_tool_arguments(arguments),
+            }
+        return None
+
+    def _summarize_tool_arguments(self, arguments: Any) -> Dict[str, Any]:
+        raw_arguments = arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)
+        summary: Dict[str, Any] = {
+            "raw_length": len(raw_arguments),
+            "contains_backtick": "`" in raw_arguments,
+        }
+        try:
+            parsed = json.loads(raw_arguments)
+        except (TypeError, ValueError):
+            summary["json_parse_ok"] = False
+            return summary
+        summary["json_parse_ok"] = True
+        if isinstance(parsed, dict):
+            summary["top_level_keys"] = sorted(parsed.keys())
+            params = parsed.get("params")
+            summary["has_params"] = isinstance(params, dict)
+            if isinstance(params, dict):
+                summary["params_keys"] = sorted(params.keys())
+                image_list = params.get("imageList") or []
+                if isinstance(image_list, list):
+                    summary["image_list_count"] = len(image_list)
+                    summary["image_list_has_backtick"] = any("`" in str(item) for item in image_list)
+        return summary
         
     def _find_last_error_message_index(self, messages: List[Dict[str, Any]]) -> int:
         last_index = -1
