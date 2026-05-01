@@ -74,7 +74,7 @@ orchestrator 自身没有 `generate_video`、`query_task_status`、`wait_for_tas
 2. 配置  → get_project_state + get_prompt_style_context_state(project, "video")  获取项目配置和风格注入
 3. 确认  → 向用户展示确认卡（prompt / input_images / duration / model / audio_mode 等）
 4. 提交  → generate_video(...)  提交生成任务
-5. 等待  → wait_for_task(task_id)  阻塞等待完成
+5. 等待  → wait_for_task(task_id)  阻塞等待完成；默认视频任务等待上限为 600 秒（10 分钟）
 6. 保存  → download_and_save_media(url, save_path)  下载视频到剧集 video/ 目录
 ```
 

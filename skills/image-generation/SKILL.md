@@ -70,7 +70,7 @@ description: 图片生成工作流技能。当任务涉及文生图、图生图�
 
 ## 异步任务闭环（防甩锅约束）
 1. 调用生成工具提交任务，获取 task_id
-2. **必须**立刻调用 `wait_for_task(task_id)` 阻塞等待（不要用 query_task_status 循环轮询）
+2. **必须**立刻调用 `wait_for_task(task_id)` 阻塞等待（不要用 query_task_status 循环轮询）；默认图片任务等待上限为 300 秒
 3. **禁止**在 processing 状态时就将控制权交还总控
 4. 等待完成后，提取图片 URL
 5. 调用 `download_and_save_media` 保存到本地

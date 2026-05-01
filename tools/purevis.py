@@ -93,6 +93,29 @@ def _resolve_provider_for_task_execution(task_id: str):
     return provider
 
 
+def _decode_libtv_task_payload(task_id: str) -> Dict[str, Any]:
+    if not isinstance(task_id, str) or not task_id.startswith("libtv:"):
+        return {}
+    try:
+        token = task_id[len("libtv:") :]
+        padding = "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode((token + padding).encode("ascii"))
+        payload = json.loads(raw.decode("utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return {}
+
+
+def _resolve_default_wait_timeout(task_id: str, timeout: Optional[int]) -> int:
+    if isinstance(timeout, int) and timeout > 0:
+        return timeout
+    payload = _decode_libtv_task_payload(task_id)
+    capability = str(payload.get("capability") or "").strip().lower()
+    if capability == "generate_video":
+        return 600
+    return 300
+
+
 def _guess_image_mime(path: str) -> str:
     ext = os.path.splitext(path)[1].lower()
     if ext == ".png":
@@ -700,7 +723,7 @@ def _should_retry_libtv_transient_failure(task_id: str, result: Any) -> bool:
     ).lower()
     return "params is required" in error_text
 
-def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> dict:
+def wait_for_task(task_id: str, timeout: Optional[int] = None, poll_interval: int = 10) -> dict:
     """
     [业界最佳实践] 阻塞等待一个异步任务完成。
     为了避免 Agent 频繁消耗 LLM token 和触发 API 频率限制，本工具会在内部每隔 `poll_interval` 秒轮询一次，
@@ -708,9 +731,10 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
     
     Args:
         task_id: The ID of the task to wait for.
-        timeout: Maximum time to wait in seconds (default 240s).
+        timeout: Maximum time to wait in seconds. Default is 600s for video tasks and 300s for image/other tasks.
         poll_interval: Seconds to sleep between polls (default 10s).
     """
+    effective_timeout = _resolve_default_wait_timeout(task_id, timeout)
     start_time = time.time()
     poll_count = 0
     transient_retry_used = False
@@ -754,8 +778,12 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
             
         # 3. 检查是否超时
         elapsed = time.time() - start_time
-        if elapsed >= timeout:
-            return {"task_id": task_id, "status": "timeout", "message": f"Task did not complete within {timeout} seconds."}
+        if elapsed >= effective_timeout:
+            return {
+                "task_id": task_id,
+                "status": "timeout",
+                "message": f"Task did not complete within {effective_timeout} seconds.",
+            }
             
         # 4. 阻塞等待
         time.sleep(poll_interval)
