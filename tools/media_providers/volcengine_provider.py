@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from core.model_config import get_tool_temperature
 from tools.media_providers.base import BaseMediaProvider, FeatureUnavailableError, normalize_audio_mode
 from tools.media_providers.registry import register_provider
+from tools.reality_enhancer import build_llm_reality_guidance, resolve_reality_profile
 from tools.volcengine_api import (
     _encode_image_to_data_uri,
     get_tool_vision_model_name,
@@ -162,7 +163,8 @@ Return a single valid JSON object with these keys:
 
 "negative": (array) Elements to avoid: "complex background", "multiple characters", "multi-view sheet", "turnaround sheet", "pose sheet", "expression sheet", "collage", "text", "watermark", "blurry", "deformed hands", "extra fingers", "anatomical errors"
 
-CRITICAL: The prompt MUST explicitly describe a single full-body character on a pure white background in 9:16 vertical composition. Never output multi-view sheets, turnaround sheets, expression sheets, pose sheets, lineups, or repeated copies of the same character in one image."""
+CRITICAL: The prompt MUST explicitly describe a single full-body character on a pure white background in 9:16 vertical composition. Never output multi-view sheets, turnaround sheets, expression sheets, pose sheets, lineups, or repeated copies of the same character in one image.
+If the user provides realism-enhancer guidance, integrate it as restrained realism cues without breaking the requested art style or character-sheet readability."""
 
 _SYS_DESIGN_SCENE = """\
 You are a senior production designer and concept artist for film and animation. Design an environment/scene suitable for AI image generation.
@@ -196,7 +198,8 @@ Return a single valid JSON object with these keys:
 
 "negative": (array) Elements to avoid: "text", "watermark", "UI elements", "blurry", "low quality", "oversaturated"
 
-Use concrete, film-industry terminology. Describe light like a cinematographer, space like an architect."""
+Use concrete, film-industry terminology. Describe light like a cinematographer, space like an architect.
+If the user provides realism-enhancer guidance, use it to reduce over-perfect rendering while preserving the requested style family."""
 
 _SYS_DESIGN_PROP = """\
 You are a senior prop designer and concept artist for film, animation, and game production. Design a prop/object suitable for AI image generation.
@@ -301,7 +304,8 @@ Return a single valid JSON object with key "prompts" — an array where each ele
   "prompt_bundle": { "prompt_zh_flat" (single-paragraph Chinese prompt with aspect ratio), "prompt_en_flat" (English equivalent), "lighting_keywords" (comma-separated string), "negative": ["text overlay", "watermark", "deformed hands", "extra fingers", "blurry"] }
 
 Ensure composition_technique.id uses: 1=Rule of thirds, 2=Golden ratio, 3=Symmetry, 4=Diagonal, 5=Leading lines, 6=Framing, 7=Center composition.
-At least 5 different techniques must appear across the sequence. Lighting MUST vary per shot while maintaining overall consistency."""
+At least 5 different techniques must appear across the sequence. Lighting MUST vary per shot while maintaining overall consistency.
+If realism-enhancer guidance is provided, reflect it in both prompt text and keyframe_json with restrained, shot-appropriate realism cues."""
 
 _SYS_VIDEO_PROMPTS = """\
 You are a senior motion director and video prompt engineer specializing in AI video generation (Seedance 2.0 / Kling / Sora class models).
@@ -367,6 +371,7 @@ Key rules:
 - Only keep shots separate when there is a hard cut in location, cast, lighting logic, screen direction, or camera language
 - For image-to-video planning, default reference priority is: multi-view sheet > approved keyframe > single reference image
 - If no dialogue/voiceover text is explicitly provided, default audio strategy to ambient_only (music / atmosphere / sound design only)
+- If realism-enhancer guidance is provided, prioritize motion-safe realism: stable materials, realistic light falloff, believable depth layering, and continuity-safe detail density
 """
 
 _SYS_MULTI_VIEW = """\
@@ -729,13 +734,22 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
                 "角色参考图模式：默认纯人物参考图。提示词中不得出现武器、坐骑、宠物、伴生体、额外角色、交通工具、"
                 "大型手持道具或单独特写道具；只保留人物本体、服装、发型、体态和必要的穿戴式配饰。"
             )
+        reality_guidance = build_llm_reality_guidance(
+            resolve_reality_profile(
+                target="design_character",
+                entity_type="character",
+                style_hint=style,
+                shot_scale="full body",
+            )
+        )
         user_prompt = (
             f"角色名称：{character_name}\n"
             f"角色简介：{character_brief}\n"
             f"风格：{style}\n"
             f"背景故事：{story_context}\n"
             f"参考图版本：{normalized_variant}\n"
-            f"参考图约束：{variant_rule}\n\n"
+            f"参考图约束：{variant_rule}\n"
+            f"{reality_guidance}\n\n"
             "请设计这个角色的完整视觉形象。"
             "提示词中必须包含 'clean white background, character design sheet'。"
         )
@@ -745,11 +759,20 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         self, scene_name: str, scene_brief: str, style: str,
         story_context: str = "",
     ) -> Dict[str, Any]:
+        reality_guidance = build_llm_reality_guidance(
+            resolve_reality_profile(
+                target="design_scene",
+                entity_type="scene",
+                style_hint=style,
+                shot_scale="wide",
+            )
+        )
         user_prompt = (
             f"场景名称：{scene_name}\n"
             f"场景简介：{scene_brief}\n"
             f"风格：{style}\n"
-            f"背景故事：{story_context}\n\n"
+            f"背景故事：{story_context}\n"
+            f"{reality_guidance}\n\n"
             "请设计这个场景的完整视觉概念。"
             "用灯光师的语言描述光影，用建筑师的语言描述空间。"
         )
@@ -795,18 +818,29 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         self, segments: List[Any], entity_names: List[str],
         aspect_ratio: str, style: str,
     ) -> Dict[str, Any]:
+        reality_guidance = build_llm_reality_guidance(
+            resolve_reality_profile(
+                target="generate_keyframe_prompts",
+                entity_type="mixed",
+                style_hint=style,
+                segments=segments,
+            )
+        )
         user_prompt = (
             f"分镜列表：\n{json.dumps(segments, ensure_ascii=False, indent=2)}\n\n"
             f"包含实体（角色/道具/场景）：{json.dumps(entity_names, ensure_ascii=False)}\n"
             f"画面比例：{aspect_ratio}\n"
-            f"风格：{style}\n\n"
+            f"风格：{style}\n"
+            f"{reality_guidance}\n\n"
             "为每个分镜生成穷尽式关键帧提示词。\n"
             "要求：\n"
             "1. prompt 字段必须是可直接喂给文生图模型的完整英文提示词\n"
             "2. keyframe_json 必须包含完整的 meta/subject/environment/lighting/composition/technical_style/prompt_bundle\n"
             "3. lighting 必须具体到主光方向(clock position)、硬柔、补光来源、轮廓光有无、光比、高光与阴影落点\n"
             "4. composition_technique 必须从七种电影构图技法中选择并说明如何落地\n"
-            f"5. 画面比例 {aspect_ratio} 必须在 prompt 和 prompt_bundle 中重复强调"
+            f"5. 画面比例 {aspect_ratio} 必须在 prompt 和 prompt_bundle 中重复强调\n"
+            "6. 对近景人物允许克制地增强自然肤质，但不要把远景或风格化镜头写成过强的纪实皮肤特写\n"
+            "7. 对场景强化真实材质差异、前中后景分层、自然背景虚化和真实光线衰减，避免样板间与塑料质感"
         )
         return self._call_llm_json(_SYS_KEYFRAME_PROMPTS, user_prompt, "GENERATE_KEYFRAME_PROMPTS")
 
@@ -814,11 +848,20 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
         self, segments: List[Any], entity_names: List[str],
         aspect_ratio: str, style: str,
     ) -> Dict[str, Any]:
+        reality_guidance = build_llm_reality_guidance(
+            resolve_reality_profile(
+                target="generate_video_prompts",
+                entity_type="mixed",
+                style_hint=style,
+                segments=segments,
+            )
+        )
         user_prompt = (
             f"分镜列表：\n{json.dumps(segments, ensure_ascii=False, indent=2)}\n\n"
             f"包含实体（角色/道具/场景）：{json.dumps(entity_names, ensure_ascii=False)}\n"
             f"画面比例：{aspect_ratio}\n"
-            f"风格：{style}\n\n"
+            f"风格：{style}\n"
+            f"{reality_guidance}\n\n"
             "请同时完成两件事：1）为每个分镜生成专业视频生成提示词；2）给出一份“推荐合并视频段”方案，把可以连续生成的相邻分镜尽量合并成 8-15 秒的较长视频。\n"
             "要求：\n"
             "1. 使用【Style】和【Duration】标头 + [00:00-00:XX] 时间码格式\n"
@@ -828,7 +871,8 @@ class VolcengineArkMediaProvider(BaseMediaProvider):
             "5. 以一致性约束结尾：角色设计/光影逻辑/物理效果的连贯性\n"
             "6. 不要机械地把每个分镜都拆成独立视频；若 2-5 个相邻分镜属于同一场景、同一角色连续动作、同一光影逻辑，应优先合并为一个 8-15 秒 clip\n"
             "7. 对于 Kling O3、Seedance 2.0 这类支持更长时长的模型，优先推荐较长但连贯的镜头设计，例如 2秒 + 3秒 + 3秒 + 2秒 合并成一个 10 秒 clip\n"
-            "8. 推荐合并视频段时，必须说明合并理由、总时长、参考素材策略和音频策略；若没有明确台词文本，默认音频策略为 ambient_only"
+            "8. 推荐合并视频段时，必须说明合并理由、总时长、参考素材策略和音频策略；若没有明确台词文本，默认音频策略为 ambient_only\n"
+            "9. 视频提示词中的真实度增强必须以运动安全为前提，优先保证光线、材质、景深、前景遮挡和物理连续性，不要过度强调会导致闪烁的微观皮肤词"
         )
         return self._call_llm_json(_SYS_VIDEO_PROMPTS, user_prompt, "GENERATE_VIDEO_PROMPTS")
 

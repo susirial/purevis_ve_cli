@@ -12,6 +12,7 @@ from core.model_config import (
     build_tool_vision_analyzer_model_config,
     build_volcengine_ark_api_config,
 )
+from tools.reality_enhancer import build_direct_prompt_reality_fragment, resolve_reality_profile
 
 try:
     from tools.image_utils import resize_and_compress_image
@@ -201,8 +202,17 @@ def local_generate_reference_image(
 ) -> Dict[str, Any]:
     variant = (reference_variant or "pure_character").strip().lower()
     target_aspect_ratio = aspect_ratio
+    normalized_entity_type = (entity_type or "").strip().lower()
     if (entity_type or "").strip().lower() == "character" and not target_aspect_ratio:
         target_aspect_ratio = "9:16"
+    reality_fragment = build_direct_prompt_reality_fragment(
+        resolve_reality_profile(
+            target="generate_reference_image",
+            entity_type=normalized_entity_type or "mixed",
+            style_hint=prompt,
+            shot_scale="full body" if normalized_entity_type == "character" else "wide",
+        )
+    )
     full_prompt = (
         f"{prompt}\n"
         "Clean pure white background, studio lighting, one centered subject, high resolution, "
@@ -211,7 +221,9 @@ def local_generate_reference_image(
         "not a collage, not a lineup, no repeated character in different poses, no multiple panels, "
         "no split layout, no contact sheet, no text, no watermark."
     )
-    if (entity_type or "").strip().lower() == "character":
+    if reality_fragment:
+        full_prompt += f" {reality_fragment}"
+    if normalized_entity_type == "character":
         if variant in {"full", "full_character", "full_character_sheet", "complete", "complete_character"}:
             full_prompt += (
                 " Full character reference mode: 9:16 vertical composition, single primary character only, clean white background, "

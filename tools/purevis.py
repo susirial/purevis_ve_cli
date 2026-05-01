@@ -668,9 +668,15 @@ def _build_query_debug_payload(result: Any) -> Dict[str, Any]:
             "capability": result_payload.get("capability"),
             "model": result_payload.get("model"),
             "after_seq": result_payload.get("after_seq"),
+            "baseline_message_count": result_payload.get("baseline_message_count"),
+            "baseline_last_message_id": result_payload.get("baseline_last_message_id"),
             "max_seq": result_payload.get("max_seq"),
+            "scanned_message_count": result_payload.get("scanned_message_count"),
+            "scoped_message_count": result_payload.get("scoped_message_count"),
             "url_count": len(result_payload.get("urls") or []),
+            "new_url_count": len(result_payload.get("new_urls") or []),
             "url": result_payload.get("url"),
+            "primary_url": result_payload.get("primary_url"),
         },
         "raw_error": _extract_query_error(raw_payload),
         "raw_messages_tail": tail_messages,
@@ -714,13 +720,21 @@ def wait_for_task(task_id: str, timeout: int = 240, poll_interval: int = 10) -> 
         status = result.get("status", "")
         poll_count += 1
         result_payload = result.get("result", {}) if isinstance(result, dict) else {}
-        url_count = len((result_payload.get("urls") or [])) if isinstance(result_payload, dict) else 0
+        new_urls = []
+        primary_url = ""
+        scanned_message_count = ""
+        if isinstance(result_payload, dict):
+            new_urls = result_payload.get("new_urls") or result_payload.get("urls") or []
+            primary_url = str(result_payload.get("primary_url") or result_payload.get("url") or "")
+            scanned_message_count = result_payload.get("scanned_message_count", "")
         print(
-            "[WaitForTask] poll=%s | status=%s | url_count=%s | session_id=%s | project_id=%s"
+            "[WaitForTask] poll=%s | status=%s | new_url_count=%s | primary_url=%s | scanned_message_count=%s | session_id=%s | project_id=%s"
             % (
                 poll_count,
                 status or "unknown",
-                url_count,
+                len(new_urls),
+                primary_url,
+                scanned_message_count,
                 result_payload.get("session_id", "") if isinstance(result_payload, dict) else "",
                 result_payload.get("project_id", "") if isinstance(result_payload, dict) else "",
             )

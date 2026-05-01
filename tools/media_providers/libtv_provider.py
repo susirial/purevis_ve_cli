@@ -163,7 +163,10 @@ class LibTVMediaProvider(BaseMediaProvider):
         normalized_ratio = self._normalize_image_ratio(aspect_ratio)
         reference_urls = self._upload_references(input_images or [])
         session_context = self._ensure_active_session()
-        start_seq = self._get_latest_seq(session_context["session_id"])
+        baseline = self._get_session_baseline(session_context["session_id"])
+        start_seq = int(baseline.get("max_seq", 0) or 0)
+        baseline_message_count = int(baseline.get("message_count", 0) or 0)
+        baseline_last_message_id = str(baseline.get("last_message_id", "") or "")
         request = self._build_generation_request(
             capability="生图",
             prompt=prompt,
@@ -181,6 +184,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_id=session_context["session_id"],
             project_id=session_context["project_id"],
             start_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
             model=normalized_model,
             aspect_ratio=normalized_ratio,
             ref_count=len(reference_urls),
@@ -191,6 +196,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_data=session_data,
             fallback_project_uuid=session_context["project_id"],
             start_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
         )
 
     def generate_video(
@@ -216,7 +223,10 @@ class LibTVMediaProvider(BaseMediaProvider):
         )
         reference_urls = self._upload_references(normalized_inputs)
         session_context = self._ensure_active_session()
-        start_seq = self._get_latest_seq(session_context["session_id"])
+        baseline = self._get_session_baseline(session_context["session_id"])
+        start_seq = int(baseline.get("max_seq", 0) or 0)
+        baseline_message_count = int(baseline.get("message_count", 0) or 0)
+        baseline_last_message_id = str(baseline.get("last_message_id", "") or "")
         extra_requirements = [
             "输出视频，不要输出图片。",
             "优先保证镜头运动与主体一致性。",
@@ -241,6 +251,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_id=session_context["session_id"],
             project_id=session_context["project_id"],
             start_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
             model=normalized_model,
             aspect_ratio=normalized_ratio,
             duration=normalized_duration,
@@ -252,6 +264,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_data=session_data,
             fallback_project_uuid=session_context["project_id"],
             start_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
         )
 
     def query_task_status(self, task_id: str) -> Dict[str, Any]:
@@ -261,9 +275,23 @@ class LibTVMediaProvider(BaseMediaProvider):
         capability = task.get("capability", "")
         model = task.get("model", "")
         after_seq = int(task.get("after_seq", 0) or 0)
+        baseline_message_count = int(task.get("baseline_message_count", 0) or 0)
+        baseline_last_message_id = str(task.get("baseline_last_message_id", "") or "")
 
         try:
-            data = self._query_session(session_id, after_seq=after_seq)
+            if after_seq > 0:
+                data = self._query_session(session_id, after_seq=after_seq)
+                scoped_messages = data.get("messages", []) or []
+                scanned_message_count = len(scoped_messages)
+            else:
+                data = self._query_session(session_id)
+                all_messages = data.get("messages", []) or []
+                scoped_messages = self._slice_messages_after_baseline(
+                    all_messages,
+                    baseline_message_count=baseline_message_count,
+                    baseline_last_message_id=baseline_last_message_id,
+                )
+                scanned_message_count = len(all_messages)
         except FeatureUnavailableError as exc:
             message = str(exc)
             if "会话不存在或无效" in message:
@@ -292,13 +320,14 @@ class LibTVMediaProvider(BaseMediaProvider):
                     "raw": {"error": message},
                 }
             raise
-        messages = data.get("messages", []) or []
+        messages = scoped_messages
         urls = self._extract_urls_from_messages(messages)
         media_type = "video" if capability == "generate_video" else "image"
         outputs = [self._build_output_item(url, media_type) for url in urls]
         error_message = self._extract_error_message(messages)
         status = self._normalize_status(messages, outputs)
         max_seq = self._extract_max_seq(messages)
+        primary_url = urls[-1] if urls else None
         self._debug_log(
             "query_status",
             session_id=session_id,
@@ -306,9 +335,12 @@ class LibTVMediaProvider(BaseMediaProvider):
             capability=capability,
             model=model,
             after_seq=after_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
             max_seq=max_seq,
-            message_count=len(messages),
-            url_count=len(urls),
+            scanned_message_count=scanned_message_count,
+            scoped_message_count=len(messages),
+            new_url_count=len(urls),
             status=status,
         )
 
@@ -317,7 +349,9 @@ class LibTVMediaProvider(BaseMediaProvider):
             "status": status,
             "result": {
                 "urls": urls,
-                "url": urls[0] if urls else None,
+                "new_urls": urls,
+                "url": primary_url,
+                "primary_url": primary_url,
                 "outputs": outputs,
                 "session_id": session_id,
                 "project_id": project_id,
@@ -325,7 +359,11 @@ class LibTVMediaProvider(BaseMediaProvider):
                 "capability": capability,
                 "model": model,
                 "after_seq": after_seq,
+                "baseline_message_count": baseline_message_count,
+                "baseline_last_message_id": baseline_last_message_id,
                 "max_seq": max_seq,
+                "scanned_message_count": scanned_message_count,
+                "scoped_message_count": len(messages),
             },
             "raw": {"messages": messages, "error": error_message},
         }
@@ -436,6 +474,8 @@ class LibTVMediaProvider(BaseMediaProvider):
         session_data: Dict[str, Any],
         fallback_project_uuid: str,
         start_seq: int,
+        baseline_message_count: int,
+        baseline_last_message_id: str,
     ) -> Dict[str, Any]:
         session_id = session_data.get("sessionId", "")
         if not session_id:
@@ -447,6 +487,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_id=session_id,
             project_id=project_uuid,
             after_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
         )
         self._debug_log(
             "task_created",
@@ -455,8 +497,17 @@ class LibTVMediaProvider(BaseMediaProvider):
             session_id=session_id,
             project_id=project_uuid,
             after_seq=start_seq,
+            baseline_message_count=baseline_message_count,
+            baseline_last_message_id=baseline_last_message_id,
         )
-        return {"task_id": token, "session_id": session_id, "project_id": project_uuid, "after_seq": start_seq}
+        return {
+            "task_id": token,
+            "session_id": session_id,
+            "project_id": project_uuid,
+            "after_seq": start_seq,
+            "baseline_message_count": baseline_message_count,
+            "baseline_last_message_id": baseline_last_message_id,
+        }
 
     def _encode_task_token(
         self,
@@ -465,6 +516,8 @@ class LibTVMediaProvider(BaseMediaProvider):
         session_id: str,
         project_id: str,
         after_seq: int,
+        baseline_message_count: int,
+        baseline_last_message_id: str,
     ) -> str:
         payload = {
             "v": 2,
@@ -474,6 +527,8 @@ class LibTVMediaProvider(BaseMediaProvider):
             "session_id": session_id,
             "project_id": project_id,
             "after_seq": int(after_seq or 0),
+            "baseline_message_count": int(baseline_message_count or 0),
+            "baseline_last_message_id": baseline_last_message_id or "",
         }
         return self.TASK_TOKEN_PREFIX + _urlsafe_b64encode(payload)
 
@@ -492,6 +547,11 @@ class LibTVMediaProvider(BaseMediaProvider):
             payload["after_seq"] = int(payload.get("after_seq", 0) or 0)
         except (TypeError, ValueError):
             payload["after_seq"] = 0
+        try:
+            payload["baseline_message_count"] = int(payload.get("baseline_message_count", 0) or 0)
+        except (TypeError, ValueError):
+            payload["baseline_message_count"] = 0
+        payload["baseline_last_message_id"] = str(payload.get("baseline_last_message_id", "") or "")
         return payload
 
     def _build_generation_request(
@@ -787,6 +847,32 @@ class LibTVMediaProvider(BaseMediaProvider):
         self._debug_log("session_seq", session_id=session_id, max_seq=max_seq, message_count=len(messages))
         return max_seq
 
+    def _get_session_baseline(self, session_id: str) -> Dict[str, Any]:
+        try:
+            data = self._query_session(session_id)
+        except FeatureUnavailableError as exc:
+            message = str(exc)
+            if "会话不存在或无效" in message:
+                self._debug_log("session_invalid_reset", session_id=session_id)
+                _ACTIVE_SESSION_CONTEXT.clear()
+                return {"max_seq": 0, "message_count": 0, "last_message_id": ""}
+            raise
+        messages = data.get("messages", []) or []
+        max_seq = self._extract_max_seq(messages)
+        last_message_id = self._extract_last_message_id(messages)
+        self._debug_log(
+            "session_baseline",
+            session_id=session_id,
+            max_seq=max_seq,
+            message_count=len(messages),
+            last_message_id=last_message_id,
+        )
+        return {
+            "max_seq": max_seq,
+            "message_count": len(messages),
+            "last_message_id": last_message_id,
+        }
+
     def _extract_max_seq(self, messages: List[Dict[str, Any]]) -> int:
         max_seq = 0
         for msg in messages:
@@ -795,6 +881,31 @@ class LibTVMediaProvider(BaseMediaProvider):
             except (TypeError, ValueError):
                 continue
         return max_seq
+
+    def _extract_last_message_id(self, messages: List[Dict[str, Any]]) -> str:
+        for msg in reversed(messages):
+            message_id = msg.get("id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+        return ""
+
+    def _slice_messages_after_baseline(
+        self,
+        messages: List[Dict[str, Any]],
+        baseline_message_count: int,
+        baseline_last_message_id: str,
+    ) -> List[Dict[str, Any]]:
+        if not messages:
+            return []
+        if baseline_last_message_id:
+            for index, msg in enumerate(messages):
+                if str(msg.get("id") or "") == baseline_last_message_id:
+                    return messages[index + 1 :]
+        if baseline_message_count > 0:
+            if baseline_message_count >= len(messages):
+                return []
+            return messages[baseline_message_count:]
+        return messages
 
     def _upload_references(self, items: List[str]) -> List[str]:
         urls = []

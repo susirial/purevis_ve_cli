@@ -3,6 +3,10 @@ import shutil
 import urllib.request
 from pathlib import Path
 
+
+_TRUSTED_MEDIA_HOST = "https://libtv-res.liblib.art/"
+_ALLOWED_MEDIA_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".mp4", ".mov", ".webm")
+
 def save_text_file(content: str, filepath: str) -> None:
     """
     SubTask 2.1: 保存文本文件。如果目录不存在则自动创建。
@@ -72,10 +76,16 @@ def download_and_save_media(url: str, filepath: str) -> None:
     """
     SubTask 2.2: 下载并保存媒体文件 (图片、视频等)。
     """
+    normalized_url = str(url or "").strip().strip("`").strip("'").strip('"')
+    if not normalized_url.startswith(_TRUSTED_MEDIA_HOST):
+        raise ValueError(f"不受信任的媒体地址: {url}")
+    url_without_query = normalized_url.split("?", 1)[0].lower()
+    if not url_without_query.endswith(_ALLOWED_MEDIA_SUFFIXES):
+        raise ValueError(f"不支持的媒体文件类型: {url}")
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
     
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    req = urllib.request.Request(normalized_url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req) as response:
         with open(path, "wb") as f:
             f.write(response.read())
