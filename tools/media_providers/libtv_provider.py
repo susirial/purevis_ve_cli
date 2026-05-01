@@ -119,9 +119,9 @@ class LibTVMediaProvider(BaseMediaProvider):
         "kling_o3": "Kling O3",
     }
     VIDEO_MODEL_RULES = {
-        "seedance_2_0": {"duration_min": 4, "duration_max": 15, "max_input_images": 2},
-        "seedance_2_0_fast": {"duration_min": 4, "duration_max": 15, "max_input_images": 2},
-        "kling_o3": {"duration_min": 4, "duration_max": 15, "max_input_images": 2},
+        "seedance_2_0": {"duration_min": 4, "duration_max": 15, "max_input_images": 7},
+        "seedance_2_0_fast": {"duration_min": 4, "duration_max": 15, "max_input_images": 7},
+        "kling_o3": {"duration_min": 4, "duration_max": 15, "max_input_images": 7},
     }
     IMAGE_ASPECT_RATIOS = {"1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "4:5", "5:4", "21:9"}
     VIDEO_ASPECT_RATIOS = {"16:9", "9:16", "1:1"}
@@ -149,6 +149,16 @@ class LibTVMediaProvider(BaseMediaProvider):
         return {
             "image": sorted(self.IMAGE_MODEL_LABELS.keys()),
             "video": sorted(self.VIDEO_MODEL_LABELS.keys()),
+        }
+
+    def video_model_limits(self) -> Dict[str, Dict[str, int]]:
+        return {
+            model: {
+                "duration_min": int(rules.get("duration_min", 4)),
+                "duration_max": int(rules.get("duration_max", 15)),
+                "max_input_images": int(rules.get("max_input_images", 7)),
+            }
+            for model, rules in self.VIDEO_MODEL_RULES.items()
         }
 
     def generate_image(
@@ -212,7 +222,7 @@ class LibTVMediaProvider(BaseMediaProvider):
     ) -> Dict[str, Any]:
         self._validate_prompt(prompt)
         normalized_model = self._normalize_video_model(model)
-        normalized_inputs = self._validate_video_inputs(input_images)
+        normalized_inputs = self._validate_video_inputs(input_images, normalized_model)
         normalized_duration = self._normalize_video_duration(duration, normalized_model)
         normalized_ratio = self._normalize_video_ratio(aspect_ratio)
         normalized_generate_audio = self._validate_generate_audio_flag(generate_audio)
@@ -745,13 +755,18 @@ class LibTVMediaProvider(BaseMediaProvider):
         if not prompt.strip():
             raise FeatureUnavailableError("prompt 不能为空。")
 
-    def _validate_video_inputs(self, input_images: Optional[List[str]]) -> List[str]:
+    def _validate_video_inputs(self, input_images: Optional[List[str]], model: str) -> List[str]:
         if input_images is None:
             return []
         if not isinstance(input_images, list):
             raise FeatureUnavailableError("input_images 格式不合法：必须是字符串数组。")
-        if len(input_images) > 2:
-            raise FeatureUnavailableError("input_images 格式不合法：最多只允许 2 张参考素材。")
+        rules = self.VIDEO_MODEL_RULES.get(model, {"max_input_images": 7})
+        max_input_images = int(rules.get("max_input_images", 7))
+        if len(input_images) > max_input_images:
+            raise FeatureUnavailableError(
+                "input_images 格式不合法：当前模型 %s 最多只允许 %s 张参考素材。"
+                % (model, max_input_images)
+            )
         normalized_inputs: List[str] = []
         for index, item in enumerate(input_images):
             if not isinstance(item, str):

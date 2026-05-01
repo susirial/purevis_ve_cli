@@ -123,6 +123,19 @@ def _build_capabilities_manifest(provider_name: str, provider: Any, defaults: Di
         capabilities["generate_image"]["aspect_ratios"] = sorted(provider.IMAGE_ASPECT_RATIOS)
         capabilities["generate_video"]["aspect_ratios"] = sorted(provider.VIDEO_ASPECT_RATIOS)
         capabilities["generate_video"]["duration_range"] = {"min": 4, "max": 15}
+        if hasattr(provider, "video_model_limits"):
+            video_limits = provider.video_model_limits()
+            capabilities["generate_video"]["max_input_images_by_model"] = {
+                model: int(limit.get("max_input_images", 0))
+                for model, limit in video_limits.items()
+            }
+            unique_limits = {
+                int(limit.get("max_input_images", 0))
+                for limit in video_limits.values()
+                if limit.get("max_input_images") is not None
+            }
+            if len(unique_limits) == 1:
+                capabilities["generate_video"]["max_input_images"] = unique_limits.pop()
 
     return capabilities
 
